@@ -10,7 +10,7 @@ Recoded Apr 2018
 @author: Anjali Bhatt
 "
 
-setwd("/afs/.ir/users/a/m/ambhatt/Git/orgculture-ABM/data/")
+setwd("/afs/.ir/users/a/m/ambhatt/Git/orgculture-ABM/")
 library(data.table)
 library(matrixStats)
 library(parallel)
@@ -173,7 +173,7 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-filename = paste(Sys.Date(),"results_fullparams.csv", sep="_")
+filename = paste("data/", Sys.Date(), "results_fullparams.csv", sep="_")
 write.csv(global_stats, file=filename)
 
 

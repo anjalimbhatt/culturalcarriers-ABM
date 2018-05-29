@@ -186,7 +186,7 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-filename = paste(Sys.Date(),"data/results_partialparams.csv", sep="_")
+filename = paste("data/", Sys.Date(), "results_partialparams.csv", sep="_")
 write.csv(global_stats, file=filename)
 
 
