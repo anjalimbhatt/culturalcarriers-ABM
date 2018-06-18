@@ -58,4 +58,4 @@ initial_conditions <- Reduce(rbind, all_cond)
 
 ### Write simulation results to csv file
 filename = paste("data/", "initial_conditions.csv", sep="")
-write.csv(initial_conditions, file="test.csv")
+write.csv(initial_conditions, file=filename)
