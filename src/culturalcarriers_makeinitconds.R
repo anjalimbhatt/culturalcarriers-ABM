@@ -48,12 +48,14 @@ build_init <- function(par) {
 
 ### Build initializations based on each set of initial condition parameters
 all_cond <- mclapply(1:nrow(params), function(i) {
-  result <- built_init(params[i,])
+  result <- build_init(params[i,])
   result <- cbind(result, params[i,])
+  cat(i, '/', nrow(params), '\n')
   return(result)
 }, mc.cores=2)
+
 initial_conditions <- Reduce(rbind, all_cond)
 
 ### Write simulation results to csv file
-filename = paste("data/", "initial_conditions.csv")
-write.csv(initial_conditions, file=filename)
+filename = paste("data/", "initial_conditions.csv", sep="")
+write.csv(initial_conditions, file="test.csv")
