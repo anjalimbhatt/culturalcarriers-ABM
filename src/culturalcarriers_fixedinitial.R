@@ -18,7 +18,7 @@ library(parallel)
 library(ggplot2)
 
 ### Set global parameters for simulations
-n_reps <- 1 # number of replications per set of parameters, per initial condition
+n_reps <- 3 # number of replications per set of parameters, per initial condition
 f <- 30 # number of firms
 n <- 30 # number of employees per firm [10, 100, 1000]
 t <- 120 # number of time periods (months)
@@ -147,16 +147,16 @@ culture_fn <- function(par) {
   }
   
   # Plot (once per parameter set and initial condition)
-  if(par$cond<10 & par$rep_no==1) {
-    plot <- ggplot(stats, aes(x=var_win, y=var_btwn)) +
-      geom_point(size=3, shape=21, alpha=0.8, color="black", aes(fill=as.numeric(row.names(stats)))) +
-      theme_bw() + scale_fill_gradient(low = "yellow", high = "red") + labs(fill="month")
-  
-    name <- paste("plots/", Sys.Date(), "_soc", par$b1, "_turnover", par$r0, "_alien", par$r1,
-                  "_select", par$s0, "_random", par$s1, "_cond", par$cond, "_no", par$rep_no,
-                  ".png", sep="")
-    ggsave(filename=name, plot=plot, units="in", width=6, height=6, pointsize=16)
-  }
+  # if(par$cond<10 & par$rep_no==1) {
+  #   plot <- ggplot(stats, aes(x=var_win, y=var_btwn)) +
+  #     geom_point(size=3, shape=21, alpha=0.8, color="black", aes(fill=as.numeric(row.names(stats)))) +
+  #     theme_bw() + scale_fill_gradient(low = "yellow", high = "red") + labs(fill="month")
+  # 
+  #   name <- paste("plots/", Sys.Date(), "_soc", par$b1, "_turnover", par$r0, "_alien", par$r1,
+  #                 "_select", par$s0, "_random", par$s1, "_cond", par$cond, "_no", par$rep_no,
+  #                 ".png", sep="")
+  #   ggsave(filename=name, plot=plot, units="in", width=6, height=6, pointsize=16)
+  # }
   
   ### Return summary statistics for each simulation run
   summary <- data.table(varbtwn_start = stats$var_btwn[1],
