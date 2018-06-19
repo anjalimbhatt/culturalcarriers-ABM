@@ -155,7 +155,7 @@ culture_fn <- function(par) {
     name <- paste("plots/", Sys.Date(), "_soc", par$b1, "_turnover", par$r0, "_alien", par$r1,
                   "_select", par$s0, "_random", par$s1, "_cond", par$cond, "_no", par$rep_no,
                   ".png", sep="")
-    ggsave(filename=name, plot=plot, units="in", width=6, height=6, pointsize=16, res=256)
+    ggsave(filename=name, plot=plot, units="in", width=6, height=6, pointsize=16)
   }
   
   ### Return summary statistics for each simulation run
