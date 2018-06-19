@@ -52,7 +52,7 @@ params <- CJ(
 
 # deduplicate for iterations with functions off
 params[alienate == 0, c('r1','r2') := NA]
-params[select == 0, c('s0') := NA]
+params[select == 0, c('s0') := 10]
 params <- unique(params)
 
 ### Define function for cultural evolution in population

@@ -53,7 +53,7 @@ params <- CJ(
 
 # deduplicate for iterations with functions off
 params[alienate == 0, c('r1','r2') := NA]
-params[select == 0, c('s0') := NA]
+params[select == 0, c('s0') := 10]
 params <- unique(params)
 
 ### Define function for cultural evolution in population
@@ -153,7 +153,7 @@ culture_fn <- function(par) {
     theme_bw() + scale_fill_gradient(low = "yellow", high = "red") + labs(fill="month")
 
   name <- paste("plots/", Sys.Date(), "_soc", par$b1, "_turnover", par$r0,
-                "_select", par$s0, "_random", par$s1,
+                "_select", par$s0, "_random", par$s1, "_cond", par$cond,
                 ".png", sep="")
   ggsave(filename=name, plot=plot, units="in", width=6, height=6, pointsize=16)
 
