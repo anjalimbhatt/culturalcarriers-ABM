@@ -39,14 +39,14 @@ params <- CJ(
   
   # turnover params
   alienate = c(0, 1), # alienation on
-  r0 = c(0.01, 0.05), # turnover base rate (3.5% monthly according to JOLTS)
+  r0 = c(0.01, 0.03), # turnover base rate (3.5% monthly according to JOLTS)
   r1 = c(0.1, 1, 10), # turnover alienation rate (relative to selection bandwidth)
-  r2 = 0.10, # max turnover probability
+  r2 = 0.06, # max turnover probability
   
   # hiring params (no noise)
   select = c(0, 1), # selectivity on
   s0 = c(0.1, 1, 10), # hiring selectivity threshold
-  s1 = c(0.01, 0.05) # base rate of random entry
+  s1 = c(0.01, 0.03) # base rate of random entry
   )
 
 # deduplicate for iterations with functions off
@@ -58,12 +58,12 @@ params <- unique(params)
 culture_fn <- function(par) {
   
   ### Create local copy of initial conditions
-  sims <- init_conds[cond==par$cond]
+  sims <- init_conds[cond==par$cond, list(firm, culture, tenure, employments)]
   
   ### Initialize stats
   stats <- data.table(var_win=rep(0, t+1), var_btwn=0, hires=0, rehires=0)
-  stats[1, var_win := mean(sims[, var(culture, na.rm=T), by=firm]$V1)]
-  stats[1, var_btwn := var(sims[, median(culture, na.rm=T), by=firm]$V1)]
+  stats[1, var_win := mean(sims[, sd(culture, na.rm=T), by=firm]$V1)]
+  stats[1, var_btwn := sd(sims[, median(culture, na.rm=T), by=firm]$V1)]
   
   ### Loop over months
   for (i in 1:t) {
@@ -123,7 +123,7 @@ culture_fn <- function(par) {
           sims2[chosen, `:=`(firm = focal_firm,
                              employments = employments + 1)]
           stats[i+1, rehires := rehires + 1]
-        } else if ((min(abs(sims2$culture[unemployed] - med_cult[focal_firm])) + rnorm(1,0,par$eps_hire)) >= 2*par$s0) {
+        } else if ((min(abs(sims2$culture[unemployed] - med_cult[focal_firm]))) >= 2*par$s0) {
           # Hire the now-unemployed person with the best cultural fit within the threshold
           # Otherwise hire outside the existing pool
           sims2 <- rbind(sims2, list(focal_firm, rnorm(1, med_cult[focal_firm], par$s0),
@@ -141,18 +141,18 @@ culture_fn <- function(par) {
     sims <- sims2[firm!=0]
     
     # Calculate statistics
-    stats[i+1, var_win := mean(sims[, var(culture, na.rm=T), by=firm]$V1)]
-    stats[i+1, var_btwn := var(sims[, median(culture, na.rm=T), by=firm]$V1)]
+    stats[i+1, var_win := mean(sims[, sd(culture, na.rm=T), by=firm]$V1)]
+    stats[i+1, var_btwn := sd(sims[, median(culture, na.rm=T), by=firm]$V1)]
   }
   
   # Plot (once per parameter set and initial condition)
   if(par$cond<10 & par$rep_no==1) {
     plot <- ggplot(stats, aes(x=var_win, y=var_btwn)) +
-      geom_point(size=3, shape=21, color="black", aes(fill=as.numeric(row.names(stats)))) +
+      geom_point(size=3, shape=21, alpha=0.8, color="black", aes(fill=as.numeric(row.names(stats)))) +
       theme_bw() + scale_fill_gradient(low = "yellow", high = "red") + labs(fill="month")
   
-    name <- paste("plots/", Sys.Date(), "b1", par$b1, "r0", par$r0, "_r1", par$r1,
-                  "_s0", par$s0, "_s1", par$s1, "_cond", par$cond, "_no", par$rep_no,
+    name <- paste("plots/", Sys.Date(), "_soc", par$b1, "_turnover", par$r0, "_alien", par$r1,
+                  "_select", par$s0, "_random", par$s1, "_cond", par$cond, "_no", par$rep_no,
                   ".png", sep="")
     png(filename=name, units="in", width=6, height=6, pointsize=16, res=256)
     print(plot)
@@ -165,7 +165,8 @@ culture_fn <- function(par) {
                         varbtwn_end = stats$var_btwn[t+1],
                         varwin_end = stats$var_win[t+1],
                         turnover = mean(stats$hires)/(n*f),
-                        carriers = mean(stats$rehires/stats$hires))
+                        carriers = mean(stats$rehires/stats$hires, na.rm=T),
+                        tenure_end = mean(sims$tenure))
   return(summary)
 }
 
