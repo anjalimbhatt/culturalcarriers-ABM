@@ -15,6 +15,7 @@ setwd("/afs/.ir/users/a/m/ambhatt/Git/orgculture-ABM/")
 library(data.table)
 library(matrixStats)
 library(parallel)
+library(ggplot2)
 
 ### Set global parameters for simulations
 n_reps <- 3 # number of replications per set of parameters, per initial condition
