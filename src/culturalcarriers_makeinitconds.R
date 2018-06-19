@@ -14,9 +14,8 @@ library(matrixStats)
 library(parallel)
 
 "
-initial conditions: 3x3=9 possibilities
-var_win = high, medium, low
-var_btwn = high, medium, low
+initial conditions: 3 possibilities
+var_win = high, medium, low (relative to var_btwn)
 
 10 initializations per initial condition
 "
@@ -27,8 +26,7 @@ f <- 30 # number of firms
 n <- 30 # number of employees per firm
 params <- CJ(
   sim_no = 1:n_sims,
-  var_win = c(0.1,1,10),
-  var_btwn = c(0.1,1,10)
+  var_win = c(0.1,1,10)
 )
 params$cond <- 1:nrow(params)
 
@@ -36,7 +34,7 @@ params$cond <- 1:nrow(params)
 build_init <- function(par) {
 
   # Initialize firm culture
-  init_firm_cult <- runif(f, -2*par$var_btwn, 2*par$var_btwn)
+  init_firm_cult <- runif(f, -2, 2)
   
   # Initialize employees' culture, tenure, and prior employments
   sims <- data.table(firm=rep(1:f, each=n), culture=0.0,

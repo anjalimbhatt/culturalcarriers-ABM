@@ -18,7 +18,7 @@ library(parallel)
 library(ggplot2)
 
 ### Set global parameters for simulations
-n_reps <- 3 # number of replications per set of parameters, per initial condition
+n_reps <- 1 # number of replications per set of parameters, per initial condition
 f <- 30 # number of firms
 n <- 30 # number of employees per firm [10, 100, 1000]
 t <- 120 # number of time periods (months)
