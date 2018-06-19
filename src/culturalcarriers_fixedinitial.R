@@ -16,77 +16,54 @@ library(data.table)
 library(matrixStats)
 library(parallel)
 
-"
-10 initializations per initial condition
-3 simulations per initialization, per parameter set
-
-initial conditions: 3x3=9 possibilities
-var_win = high, medium, low
-var_btwn = high, medium, low
-
-parameter set:
-socialize = high, low, off (socialization error off)
-base turnover = high, low
-alienation = high, low, off
-selectivity = high, low, off (selectivity error off)
-base random = high, low
-
-
-"
-
 ### Set global parameters for simulations
-n_sims <- 30 # number of simulations per set of parameters
+n_reps <- 3 # number of replications per set of parameters, per initial condition
 f <- 30 # number of firms
 n <- 30 # number of employees per firm [10, 100, 1000]
 t <- 120 # number of time periods (months)
 
+### Read in initializations
+init_conds <- read.csv("data/initial_conditions.csv", header=T)
+init_conds <- data.table(init_conds)
 
 ### Make data frame of varying parameter settings
 params <- CJ(
-  sim_no = 1:n_sims,
+  cond = 1:max(init_conds$cond),
+  rep_no = 1:n_reps,
   
-  # socialization params
-  socialize = c(0, 1), # socialization on/off
-  b0 = 0.05, # asymptotic socialization susceptibility
-  b1 = c(0.0, 0.15, 0.3, 0.45, 0.6), # initial socialization susceptibility
+  # socialization params (no noise)
+  #b0 = 0.0, # asymptotic socialization susceptibility
+  b1 = c(0.0, 0.2, 0.6), # initial socialization susceptibility
   b2 = 0.30, # speed of socialization susceptibility decline by tenure
   b3 = 0.10, # speed of socialization susceptibility decline by employments
-  eps_soc = c(0, 0.01, 0.1), # socialization error term (standard deviation)
   
   # turnover params
   alienate = c(0, 1), # alienation on
-  r0 = c(0.00, 0.015, 0.03, 0.045, 0.06), # turnover base rate (3.5% monthly according to JOLTS)
-  r1 = c(0.1, 0.5, 1, 5, 10), # turnover alienation rate
+  r0 = c(0.01, 0.05), # turnover base rate (3.5% monthly according to JOLTS)
+  r1 = c(0.1, 1, 10), # turnover alienation rate (relative to selection bandwidth)
   r2 = 0.10, # max turnover probability
   
-  # hiring params
+  # hiring params (no noise)
   select = c(0, 1), # selectivity on
-  s0 = c(0.1, 0.5, 1, 5, 10), # hiring selectivity threshold
-  s1 = 0.01, # base rate of random entry
-  eps_hire = c(0, 0.01, 0.1) # hiring error term (standard deviation) 
+  s0 = c(0.1, 1, 10), # hiring selectivity threshold
+  s1 = c(0.01, 0.05) # base rate of random entry
   )
 
 # deduplicate for iterations with functions off
-params[socialize == 0, c('b0','b1','b2', 'b3','eps_soc') := 0]
-params[alienate == 0, c('r1','r2') := 0]
-params[select == 0, c('s0','eps_hire') := 10]
+params[alienate == 0, c('r1','r2') := NA]
+params[select == 0, c('s0') := NA]
 params <- unique(params)
 
 ### Define function for cultural evolution in population
 culture_fn <- function(par) {
   
-  ### Initialize firm culture
-  init_firm_cult <- rnorm(f)
-  
-  ### Initialize employees' culture and tenure
-  sims <- data.table(firm=rep(1:f, each=n), culture=0.0,
-                     tenure=rlnorm(n*f, 2.5, 1), employments=0.0)
-  sims[, culture := rnorm(n*f, init_firm_cult[firm], par$s0)]
+  ### Create local copy of initial conditions
+  sims <- init_conds[cond==par$cond]
   
   ### Initialize stats
   stats <- data.table(var_win=rep(0, t+1), var_btwn=0, hires=0, rehires=0)
   stats[1, var_win := mean(sims[, var(culture, na.rm=T), by=firm]$V1)]
-  stats[1, var_btwn := var(sims[, mean(culture, na.rm=T), by=firm]$V1)]
+  stats[1, var_btwn := var(sims[, median(culture, na.rm=T), by=firm]$V1)]
   
   ### Loop over months
   for (i in 1:t) {
@@ -101,19 +78,17 @@ culture_fn <- function(par) {
       sims2[, firm := 0 + firm * (runif(n*f) > par$r0)]
     } else {
       # Otherwise, retention is modeled as a gaussian shape
-      sims2[, firm := 0 + firm * (runif(n*f) > (par$r2 - (par$r2-par$r0) * (par$r1) *
-                           sqrt(2*pi) * (dnorm(culture, med_cult[firm], par$r1))))]
+      sims2[, firm := 0 + firm * (runif(n*f) > (par$r2 - (par$r2-par$r0) * (par$r1*par$s0) *
+                           sqrt(2*pi) * (dnorm(culture, med_cult[firm], par$r1*par$s0))))]
     }
     #  Restart tenure clock for departed employees
     sims2[, tenure := 0 + tenure*(firm!=0)]
     
-    ### Then socialization (skip if none)
-    if (par$socialize==1) {
-      # Even unemployed individuals experience noisy socialization
-      sims2[, culture := culture + rnorm(n*f, 0, par$eps_soc) +
-              (firm!=0) * (med_cult[firm] - culture) *
-              (par$b0 + par$b1 * exp(-(par$b2 * (tenure-1))-(par$b3 * (employments-1))))]
-    }
+    ### Then socialization
+    # no noise, no asymptotic socialization
+    sims2[, culture := culture +
+            (firm!=0) * (med_cult[firm] - culture) *
+            (par$b1 * exp(-(par$b2 * (tenure-1))-(par$b3 * (employments-1))))]
     
     ### Then hiring
     # Track how many hires made each period
@@ -140,7 +115,8 @@ culture_fn <- function(par) {
         
         # First check for random entry
         if (queue$draw[h] <= par$s1 | length(unemployed)==0) {
-          sims2 <- rbind(sims2, list(focal_firm, rnorm(1, med_cult[focal_firm], par$s0), 0, 0))
+          sims2 <- rbind(sims2, list(focal_firm, rnorm(1, med_cult[focal_firm], par$s0),
+                                     0, ceiling(rlnorm(1,0,0.5))))
         } else if (par$select==0) {
           # If no selectivity, then draw random unemployed
           chosen <- unemployed[sample.int(length(unemployed), 1)]
@@ -150,7 +126,8 @@ culture_fn <- function(par) {
         } else if ((min(abs(sims2$culture[unemployed] - med_cult[focal_firm])) + rnorm(1,0,par$eps_hire)) >= 2*par$s0) {
           # Hire the now-unemployed person with the best cultural fit within the threshold
           # Otherwise hire outside the existing pool
-          sims2 <- rbind(sims2, list(focal_firm, rnorm(1, med_cult[focal_firm], par$s0), 0, 0))
+          sims2 <- rbind(sims2, list(focal_firm, rnorm(1, med_cult[focal_firm], par$s0),
+                                     0, ceiling(rlnorm(1,0,0.5))))
         } else {
           chosen <- unemployed[which.min(abs(sims2$culture[unemployed] - med_cult[focal_firm]))]
           sims2[chosen, `:=`(firm = focal_firm,
@@ -165,18 +142,28 @@ culture_fn <- function(par) {
     
     # Calculate statistics
     stats[i+1, var_win := mean(sims[, var(culture, na.rm=T), by=firm]$V1)]
-    stats[i+1, var_btwn := var(sims[, mean(culture, na.rm=T), by=firm]$V1)]
+    stats[i+1, var_btwn := var(sims[, median(culture, na.rm=T), by=firm]$V1)]
+  }
+  
+  # Plot (once per parameter set and initial condition)
+  if(par$cond<10 & par$rep_no==1) {
+    plot <- ggplot(stats, aes(x=var_win, y=var_btwn)) +
+      geom_point(size=3, shape=21, color="black", aes(fill=as.numeric(row.names(stats)))) +
+      theme_bw() + scale_fill_gradient(low = "yellow", high = "red") + labs(fill="month")
+  
+    name <- paste("plots/", Sys.Date(), "b1", par$b1, "r0", par$r0, "_r1", par$r1,
+                  "_s0", par$s0, "_s1", par$s1, "_cond", par$cond, "_no", par$rep_no,
+                  ".png", sep="")
+    png(filename=name, units="in", width=6, height=6, pointsize=16, res=256)
+    print(plot)
+    dev.off()
   }
   
   ### Return summary statistics for each simulation run
-  summary <- data.table(varbtwn_0 = stats$var_btwn[1],
-                        varwin_0 = stats$var_win[1],
-                        varbtwn_100 = mean(stats$var_btwn[91:101]),
-                        varwin_100 = mean(stats$var_win[91:101]),
-                        varbtwn_200 = mean(stats$var_btwn[191:201]),
-                        varwin_200 = mean(stats$var_win[191:201]),
-                        varbtwn_300 = mean(stats$var_btwn[291:301]),
-                        varwin_300 = mean(stats$var_win[291:301]),
+  summary <- data.table(varbtwn_start = stats$var_btwn[1],
+                        varwin_start = stats$var_win[1],
+                        varbtwn_end = stats$var_btwn[t+1],
+                        varwin_end = stats$var_win[t+1],
                         turnover = mean(stats$hires)/(n*f),
                         carriers = mean(stats$rehires/stats$hires))
   return(summary)
@@ -192,8 +179,5 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-filename = paste("data/", Sys.Date(), "results_fullparams.csv", sep="_")
+filename = paste("data/", Sys.Date(), "_results_fullparams.csv", sep="")
 write.csv(global_stats, file=filename)
-
-
-
