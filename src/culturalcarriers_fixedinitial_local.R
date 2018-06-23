@@ -41,14 +41,14 @@ params <- CJ(
   
   # turnover params
   alienate = 1, # alienation on
-  r0 = c(0.01, 0.03), # turnover base rate (3.5% monthly according to JOLTS)
-  r1 = 1, # turnover alienation rate (relative to selection bandwidth)
+  r0 = c(0.01, 0.03, 0.05), # turnover base rate (3.5% monthly according to JOLTS)
+  r1 = c(0.1, 1, 10), # turnover alienation rate
   r2 = 0.06, # max turnover probability
   
   # hiring params (no noise)
   select = 1, # selectivity on
   s0 = c(0.1, 1, 10), # hiring selectivity threshold
-  s1 = c(0.01, 0.03) # base rate of random entry
+  s1 = c(0.01, 0.03, 0.05) # base rate of random entry
   )
 
 # deduplicate for iterations with functions off
@@ -80,8 +80,8 @@ culture_fn <- function(par) {
       sims2[, firm := 0 + firm * (runif(n*f) > par$r0)]
     } else {
       # Otherwise, retention is modeled as a gaussian shape
-      sims2[, firm := 0 + firm * (runif(n*f) > (par$r2 - (par$r2-par$r0) * (par$r1*par$s0) *
-                           sqrt(2*pi) * (dnorm(culture, med_cult[firm], par$r1*par$s0))))]
+      sims2[, firm := 0 + firm * (runif(n*f) > (par$r2 - (par$r2-par$r0) * (par$r1) *
+                           sqrt(2*pi) * (dnorm(culture, med_cult[firm], par$r1))))]
     }
     #  Restart tenure clock for departed employees
     sims2[, tenure := 0 + tenure*(firm!=0)]
@@ -153,7 +153,7 @@ culture_fn <- function(par) {
     theme_bw() + scale_fill_gradient(low = "yellow", high = "red") + labs(fill="month")
 
   name <- paste("plots/", Sys.Date(), "_soc", par$b1, "_turnover", par$r0,
-                "_select", par$s0, "_random", par$s1, "_cond", par$cond,
+                "_alienate", par$r1, "_select", par$s0, "_random", par$s1, "_cond", par$cond,
                 ".png", sep="")
   ggsave(filename=name, plot=plot, units="in", width=6, height=6, pointsize=16)
 

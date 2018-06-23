@@ -18,13 +18,13 @@ library(parallel)
 library(ggplot2)
 
 ### Set global parameters for simulations
-n_reps <- 3 # number of replications per set of parameters, per initial condition
+n_reps <- 5 # number of replications per set of parameters, per initial condition
 f <- 30 # number of firms
 n <- 30 # number of employees per firm [10, 100, 1000]
 t <- 120 # number of time periods (months)
 
 ### Read in initializations
-init_conds <- read.csv("data/initial_conditions.csv", header=T)
+init_conds <- read.csv("data/initial_conditions_plots.csv", header=T)
 init_conds <- data.table(init_conds)
 
 ### Make data frame of varying parameter settings
@@ -39,16 +39,16 @@ params <- CJ(
   b3 = 0.10, # speed of socialization susceptibility decline by employments
   
   # turnover params
-  alienate = c(0, 1), # alienation on
-  r0 = c(0.01, 0.03), # turnover base rate (3.5% monthly according to JOLTS)
-  r1 = c(0.1, 1, 10), # turnover alienation rate (relative to selection bandwidth)
+  alienate = c(0,1), # alienation on
+  r0 = c(0.01, 0.03, 0.05), # turnover base rate (3.5% monthly according to JOLTS)
+  r1 = c(0.1, 1, 10), # turnover alienation rate
   r2 = 0.06, # max turnover probability
   
   # hiring params (no noise)
-  select = c(0, 1), # selectivity on
+  select = c(0,1), # selectivity on
   s0 = c(0.1, 1, 10), # hiring selectivity threshold
-  s1 = c(0.01, 0.03) # base rate of random entry
-  )
+  s1 = c(0.01, 0.03, 0.05) # base rate of random entry
+)
 
 # deduplicate for iterations with functions off
 params[alienate == 0, c('r1','r2') := NA]
@@ -79,8 +79,8 @@ culture_fn <- function(par) {
       sims2[, firm := 0 + firm * (runif(n*f) > par$r0)]
     } else {
       # Otherwise, retention is modeled as a gaussian shape
-      sims2[, firm := 0 + firm * (runif(n*f) > (par$r2 - (par$r2-par$r0) * (par$r1*par$s0) *
-                           sqrt(2*pi) * (dnorm(culture, med_cult[firm], par$r1*par$s0))))]
+      sims2[, firm := 0 + firm * (runif(n*f) > (par$r2 - (par$r2-par$r0) * (par$r1) *
+                                                  sqrt(2*pi) * (dnorm(culture, med_cult[firm], par$r1))))]
     }
     #  Restart tenure clock for departed employees
     sims2[, tenure := 0 + tenure*(firm!=0)]
@@ -137,7 +137,7 @@ culture_fn <- function(par) {
         }
       }
     }
-
+    
     # Remove all non-hires
     sims <- sims2[firm!=0]
     
@@ -146,17 +146,15 @@ culture_fn <- function(par) {
     stats[i+1, var_btwn := sd(sims[, median(culture, na.rm=T), by=firm]$V1)]
   }
   
-  # Plot (once per parameter set and initial condition)
-  # if(par$cond<10 & par$rep_no==1) {
-  #   plot <- ggplot(stats, aes(x=var_win, y=var_btwn)) +
-  #     geom_point(size=3, shape=21, alpha=0.8, color="black", aes(fill=as.numeric(row.names(stats)))) +
-  #     theme_bw() + scale_fill_gradient(low = "yellow", high = "red") + labs(fill="month")
+  # # Plot (once per parameter set and initial condition)
+  # plot <- ggplot(stats, aes(x=var_win, y=var_btwn)) +
+  #   geom_point(size=3, shape=21, alpha=0.8, color="black", aes(fill=as.numeric(row.names(stats)))) +
+  #   theme_bw() + scale_fill_gradient(low = "yellow", high = "red") + labs(fill="month")
   # 
-  #   name <- paste("plots/", Sys.Date(), "_soc", par$b1, "_turnover", par$r0, "_alien", par$r1,
-  #                 "_select", par$s0, "_random", par$s1, "_cond", par$cond, "_no", par$rep_no,
-  #                 ".png", sep="")
-  #   ggsave(filename=name, plot=plot, units="in", width=6, height=6, pointsize=16)
-  # }
+  # name <- paste("plots/", Sys.Date(), "_soc", par$b1, "_turnover", par$r0,
+  #               "_select", par$s0, "_random", par$s1, "_cond", par$cond,
+  #               ".png", sep="")
+  # ggsave(filename=name, plot=plot, units="in", width=6, height=6, pointsize=16)
   
   ### Return summary statistics for each simulation run
   summary <- data.table(varbtwn_start = stats$var_btwn[1],
@@ -165,7 +163,8 @@ culture_fn <- function(par) {
                         varwin_end = stats$var_win[t+1],
                         turnover = mean(stats$hires)/(n*f),
                         carriers = mean(stats$rehires/stats$hires, na.rm=T),
-                        tenure_end = mean(sims$tenure))
+                        tenure_end = median(sims$tenure),
+                        emps_end = median(sims$employments))
   return(summary)
 }
 
@@ -175,7 +174,7 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
   result <- cbind(result, params[i,])
   cat(i, '/', nrow(params), '\n')
   return(result)
-}, mc.cores=20)
+}, mc.cores=30)
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
