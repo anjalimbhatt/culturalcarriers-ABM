@@ -24,7 +24,7 @@ n <- 30 # number of employees per firm [10, 100, 1000]
 t <- 120 # number of time periods (months)
 
 ### Read in initializations
-init_conds <- read.csv("data/initial_conditions_plots.csv", header=T)
+init_conds <- read.csv("data/initial_conditions.csv", header=T)
 init_conds <- data.table(init_conds)
 
 ### Make data frame of varying parameter settings
