@@ -8,6 +8,8 @@ Originally written March 2017
 Recoded Apr 2018
 Recoded for fixed initial conditions Jun 2018
 
+***Only for simulating WITHOUT inter-org mobility***
+
 @author: Anjali Bhatt
 "
 
@@ -45,9 +47,9 @@ params <- CJ(
   r2 = 0.06, # max turnover probability
   
   # hiring params (no noise)
-  select = c(0,1), # selectivity on
+  select = c(1), # selectivity on
   s0 = c(0.1, 1, 10), # hiring selectivity threshold
-  s1 = c(0.01, 0.03, 0.05, 1) # base rate of random entry
+  s1 = c(1) # base rate of random entry
 )
 
 # deduplicate for iterations with functions off
@@ -178,5 +180,5 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-filename = paste("data/", Sys.Date(), "_results_fullparams.csv", sep="")
+filename = paste("data/", Sys.Date(), "_results_fullparams_nointerorg.csv", sep="")
 write.csv(global_stats, file=filename)
