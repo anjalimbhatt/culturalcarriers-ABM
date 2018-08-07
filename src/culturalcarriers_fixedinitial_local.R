@@ -30,7 +30,7 @@ init_conds <- data.table(init_conds)
 
 ### Make data frame of varying parameter settings
 params <- CJ(
-  cond = 1:max(init_conds$cond),
+  cond = c(1,2,3),
   rep_no = 1:n_reps,
   
   # socialization params (no noise)
@@ -48,7 +48,7 @@ params <- CJ(
   # hiring params (no noise)
   select = 1, # selectivity on
   s0 = c(0.1, 1, 10), # hiring selectivity threshold
-  s1 = c(0.01, 0.03, 0.05) # base rate of random entry
+  s1 = c(1) # base rate of random entry
   )
 
 # deduplicate for iterations with functions off
@@ -178,5 +178,5 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-filename = paste("data/", Sys.Date(), "_results_partialparams.csv", sep="")
+filename = paste("data/", Sys.Date(), "_results_partialparams_nointerorg.csv", sep="")
 write.csv(global_stats, file=filename)
