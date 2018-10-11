@@ -34,7 +34,7 @@ params$cond <- 1:nrow(params)
 build_init <- function(par) {
 
   # Initialize firm culture
-  init_firm_cult <- runif(f, -2, 2)
+  init_firm_cult <- rnorm(0,1)
   
   # Initialize employees' culture, tenure, and prior employments
   sims <- data.table(firm=rep(1:f, each=n), culture=0.0,
@@ -55,5 +55,5 @@ all_cond <- mclapply(1:nrow(params), function(i) {
 initial_conditions <- Reduce(rbind, all_cond)
 
 ### Write simulation results to csv file
-filename = paste("data/", "initial_conditions.csv", sep="")
+filename = paste("data/", "initial_conditions_201810.csv", sep="")
 write.csv(initial_conditions, file=filename)

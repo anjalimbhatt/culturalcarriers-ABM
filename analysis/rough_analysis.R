@@ -1,17 +1,24 @@
 library(tidyverse)
 
+setwd("~/Documents/GitHub/orgculture-ABM/")
 data <- read.csv("data/2018-06-23_results_fullparams.csv", header=T)
 data2 <- read.csv("data/2018-06-25_results_fullparams_nointerorg.csv", header=T)
 cond <- read.csv("data/initial_conditions.csv", header=T)
 cond <- unique(cond[,c("var_win","cond")])
 data <- data %>% rbind(data2) %>% left_join(cond, by="cond")
 
-data$varwin_ratio <- data$varwin_end/data$varwin_start
-data$varbtwn_ratio <- data$varbtwn_end/data$varbtwn_start
+#data$varwin_ratio <- data$varwin_end/data$varwin_start
+#data$varbtwn_ratio <- data$varbtwn_end/data$varbtwn_start
 data$mobility <- data$turnover*data$carriers
 data$random_entry <- data$turnover*(1-data$carriers)
-data$differentiated <- data$varbtwn_end/data$varwin_end
-data$diff_start <- data$varbtwn_start/data$varwin_start
+data$varbtwn_end <- data$varbtwn_end^2
+data$varbtwn_start <- data$varbtwn_start^2
+data$varwin_end <- data$varwin_end^2
+data$varwin_start <- data$varwin_start^2
+data$fstat_start <- 30 * data$varbtwn_start / data$varwin_start
+data$fstat_end <- 30 * data$varbtwn_end / data$varwin_end
+
+
 
 ## lowest varbtwn_ratio for high socialization, high turnover, high alienation, high selectivity.
 ## but why high selectivity? not due to mobility/random entry (it's lower in both).
@@ -104,44 +111,159 @@ library(stargazer)
 stargazer(data[,c("varwin_ratio","varbtwn_ratio","mobility","random_entry")])
 stat.desc(data)
 
-correlation.matrix <- cor(data[which(data$alienate==1),c("var_win","r0","r1","s0","s1","b1","varwin_ratio","varbtwn_ratio","mobility","random_entry")])
+correlation.matrix <- cor(data[which(data$alienate==1 & data$select==1),c("var_win","r0","r1","s0","s1","b1","varwin_end","varbtwn_end", "fstat_end", "mobility","random_entry", "tenure_end", "emps_end")])
 correlation.matrix <- round(correlation.matrix,2)
 stargazer(correlation.matrix, title="Correlation Matrix")
 
+
+
+
+
+
+library(xtable)
+library(Hmisc)
+
+corstarsl <- function(x){ 
+  require(Hmisc) 
+  x <- as.matrix(x) 
+  R <- rcorr(x)$r 
+  p <- rcorr(x)$P 
+  
+  ## define notions for significance levels; spacing is important.
+  mystars <- ifelse(p < .001, "***", ifelse(p < .01, "** ", ifelse(p < .05, "* ", " ")))
+  
+  ## trunctuate the matrix that holds the correlations to two decimal
+  R <- format(round(cbind(rep(-1.11, ncol(x)), R), 2))[,-1] 
+  
+  ## build a new matrix that includes the correlations with their apropriate stars 
+  Rnew <- matrix(paste(R, mystars, sep=""), ncol=ncol(x)) 
+  diag(Rnew) <- paste(diag(R), " ", sep="") 
+  rownames(Rnew) <- colnames(x) 
+  colnames(Rnew) <- paste(colnames(x), "", sep="") 
+  
+  ## remove upper triangle
+  Rnew <- as.matrix(Rnew)
+  Rnew[upper.tri(Rnew, diag = TRUE)] <- ""
+  Rnew <- as.data.frame(Rnew) 
+  
+  ## remove last column and return the matrix (which is now a data frame)
+  Rnew <- cbind(Rnew[1:length(Rnew)-1])
+  return(Rnew) 
+}
+
+xtable(corstarsl(data[which(data$alienate==1 & data$select==1 & data$s1!=1),c("var_win","r0","r1","b1","s1","s0","varwin_end","varbtwn_end", "fstat_end", "mobility","random_entry", "tenure_end", "emps_end")])) #Latex code
+
+
+
+
+
+
 # Run regressions
-full.stats <- data[which(data$alienate==1 & data$s1!=1),
-                   c('varwin_ratio','varbtwn_ratio','var_win','s0','r1','r0','b1','s1','mobility','random_entry')]
-lm.var.win.1 <- lm(varwin_ratio ~ log10(var_win)  + log10(s0) + log10(r1) + r0 + b1 + s1, data=full.stats)
-lm.var.win.2 <- lm(varwin_ratio ~ (log10(var_win)  + log10(s0) + log10(r1) + r0 + b1 + s1)^2, data=full.stats)
-lm.var.win.3 <- lm(varwin_ratio ~ mobility + random_entry, data=full.stats)
-lm.var.btwn.1 <- lm(varbtwn_ratio ~ log10(var_win)  + log10(s0) + log10(r1) + r0 + b1 + s1, data=full.stats)
-lm.var.btwn.2 <- lm(varbtwn_ratio ~ (log10(var_win)  + log10(s0) + log10(r1) + r0 + b1 + s1)^2, data=full.stats)
-lm.var.btwn.3 <- lm(varbtwn_ratio ~ mobility + random_entry, data=full.stats)
+full.stats <- data[which(data$alienate==1 & data$select==1 & data$s1!=1),
+                   c("var_win","r0","r1","b1","s1","s0","varwin_end","varbtwn_end", "fstat_end", "mobility","random_entry", "tenure_end", "emps_end", "var_win", "cond")]
+
+nointerorg.stats <- data[which(data$alienate==1 & data$select==1 & data$s1==1),
+                        c("var_win","r0","r1","b1","s1","s0","varwin_end","varbtwn_end", "fstat_end", "mobility","random_entry", "tenure_end", "emps_end", "var_win", "cond")]
+
+
 
 library(plm)
-felm_varwin <- plm(varwin_ratio ~ log10(s0) + log10(r1) + r0 + b1 + s1,
-                  data=data[which(data$alienate==1 & data$s1!=1),],
+felm_varwin <- plm(log10(sqrt(varwin_end)) ~ log10(s0) + log10(r1) + b1 + r0 + s1,
+                  data=full.stats,
                   index=c("cond"), model="within")
-stargazer(lm.var.win.1, lm.var.btwn.1,
+felm_varbtwn <- plm(log10(sqrt(varbtwn_end)) ~ log10(s0) + log10(r1) + b1 + r0 + s1,
+                   data=full.stats,
+                   index=c("cond"), model="within")
+felm_fstat <- plm(log10(fstat_end) ~ log10(s0) + log10(r1) + b1 + r0 + s1,
+                    data=full.stats,
+                    index=c("cond"), model="within")
+
+felm_mobility <- plm(mobility ~ log10(s0) + log10(r1) + b1 + r0 + s1,
+                    data=full.stats,
+                    index=c("cond"), model="within")
+
+felm_randomentry <- plm(random_entry ~ log10(s0) + log10(r1) + b1 + r0 + s1,
+                     data=full.stats,
+                     index=c("cond"), model="within")
+
+felm_tenure <- plm(tenure_end ~ log10(s0) + log10(r1) + b1 + r0 + s1,
+                     data=full.stats,
+                     index=c("cond"), model="within")
+
+felm_emps <- plm(emps_end ~ log10(s0) + log10(r1) + b1 + r0 + s1,
+                     data=full.stats,
+                     index=c("cond"), model="within")
+
+felm_varwin_nointerorg <- plm(log10(sqrt(varwin_end)) ~ log10(s0) + log10(r1) + b1 + r0,
+                              data=nointerorg.stats,
+                              index=c("cond"), model="within")
+
+felm_varbtwn_nointerorg <- plm(log10(sqrt(varbtwn_end)) ~ log10(s0) + log10(r1) + b1 + r0,
+                              data=nointerorg.stats,
+                              index=c("cond"), model="within")
+
+felm_fstat_nointerorg <- plm(log10(sqrt(fstat_end)) ~ log10(s0) + log10(r1) + b1 + r0,
+                               data=nointerorg.stats,
+                               index=c("cond"), model="within")
+
+
+stargazer(felm_varwin, felm_varbtwn, felm_fstat,
           title="OLS Regression Results",
-          covariate.labels=c("Init. sigma_{within} (logged)","Selection Bandwidth (logged)","Alienation Bandwidth (logged)","Base Turnover Rate","Base Socialization Rate","Base Random Entry Rate"),
-          align=TRUE, dep.var.labels=c("sigma_{within}","sigma_{between}"),
+          covariate.labels=c("Selection Bandwidth (logged)","Alienation Bandwidth (logged)","Base Socialization Rate","Base Turnover Rate","Base Random Entry Rate"),
+          align=TRUE, dep.var.labels=c("sigma_text{within} (logged)","sigma_text{between} (logged)", "tilde{F}_text{stat}"),
           omit.stat=c("LL","ser","aic","bic"), no.space=T)
 
-lm.mobility <- lm(mobility ~ r0 + log(r1) + log(s) + log(b1))
-lm.random <- lm(random ~ r0 + log(r1) + log(s) + log(b1))
-lm.teq <- lm(t.eq ~ r0 + log(r1) + log(s) + log(b1))
-
-stargazer(lm.mobility, lm.random, lm.teq,
+stargazer(felm_mobility, felm_randomentry,
           title="OLS Regression Results, cont'd (Mediators on Parameters)",
-          covariate.labels=c("r_0","log r_1","log s","log b_1"),
-          align=TRUE, dep.var.labels=c("Mobility","Random Entry","t_text{eq}"),
+          covariate.labels=c("Selection Bandwidth (logged)","Alienation Bandwidth (logged)","Base Socialization Rate","Base Turnover Rate","Base Random Entry Rate"),
+          align=TRUE, dep.var.labels=c("Mobility","Random Entry"),
           omit.stat=c("LL","ser","aic","bic"), no.space=T)
 
-##### Plots
 
 
 
+
+ggplot(data[which(data$var_win==0.1 & data$s0==1 & data$r1==1 & data$b1==0.6 & data$alienate==1 & data$select==1),],
+               aes(x=factor(r0), y=fstat_end, col=factor(s1==1))) +
+  geom_violin() + theme_bw() +
+  scale_color_discrete(name=element_blank(), labels=c("Interfirm Mobility", "No Mobility")) +
+  xlab("Base Turnover Rate") + ylab(expression(F["stat"])) + theme(legend.position="top")
+
+plot
+
+ggsave(filename="tables/mobility_matters.png", plot=plot, units="in", width=6, height=6, pointsize=16)
+
+
+ggplot(data[which(data$var_win==0.1 & data$r1==0.1 & data$r0==0.05 & data$s1!=1 & data$alienate==1),],
+       aes(x=factor(b1), y=varbtwn_end, col=factor(s0))) +
+  geom_violin() + theme_bw()
+
+ggplot(data[which(data$var_win==0.1 & data$s1!=1 & data$b1==0.6 & data$r0==0.05),],
+       aes(x=factor(r1), y=varbtwn_end, col=factor(s0))) +
+  geom_violin() + theme_bw()
+
+ggplot(data[which(data$var_win==0.1 & data$b1==0.0 & data$select==1 & data$alienate==1 & data$s1!=1 &
+                    data$s0==0.1 & data$r0==0.05),],
+       aes(x=factor(r1), y=varbtwn_end, col=factor(s1))) +
+  theme_bw() + geom_violin()
+
+ggplot(data[which(data$var_win==0.1 & data$select==1 & data$s0==0.1 & data$alienate==0 & data$b1==0 & data$s1==0.01),],
+       aes(x=random_entry, y=varbtwn_end, col=factor(r0))) +
+  theme_bw() + geom_violin()
+
+ggplot(data[which(data$var_win==0.1 & data$s0==1 & data$alienate==0 & data$b1==0),],
+       aes(x=factor(r0), y=varwin_end, col=factor(s1))) +
+  theme_bw() + geom_violin()
+
+
+ggplot(data[which(data$var_win==0.1 & data$s0==0.1 & data$r1==0.1 & data$b1==0 & data$s1!=1 & data$r0==0.01),],
+       aes(x=factor(s1), y=fstat_end, col=factor(s1))) +
+  theme_bw() + geom_violin()
+
+
+ggplot(data[which(data$var_win==1 & data$b1==0 & data$s1!=1),],
+       aes(x=factor(s0), y=fstat_end, col=factor(r1))) +
+  theme_bw() + geom_violin()
 
 
 

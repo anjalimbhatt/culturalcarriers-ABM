@@ -12,7 +12,7 @@ Recoded for fixed initial conditions Jun 2018
 @author: Anjali Bhatt
 "
 
-setwd("/afs/.ir/users/a/m/ambhatt/Git/orgculture-ABM/")
+setwd("~/Documents/GitHub/orgculture-ABM/")
 library(data.table)
 library(matrixStats)
 library(parallel)
