@@ -34,7 +34,7 @@ params$cond <- 1:nrow(params)
 build_init <- function(par) {
 
   # Initialize firm culture
-  init_firm_cult <- rnorm(0,1)
+  init_firm_cult <- rnorm(f,0,1)
   
   # Initialize employees' culture, tenure, and prior employments
   sims <- data.table(firm=rep(1:f, each=n), culture=0.0,
