@@ -1,22 +1,21 @@
 library(tidyverse)
 
 setwd("~/Documents/GitHub/orgculture-ABM/")
-data <- read.csv("data/2018-06-23_results_fullparams.csv", header=T)
-data2 <- read.csv("data/2018-06-25_results_fullparams_nointerorg.csv", header=T)
-cond <- read.csv("data/initial_conditions.csv", header=T)
+data <- read.csv("data/2018-10-11_results_partialparams.csv", header=T)
+cond <- read.csv("data/initial_conditions_201810_plots.csv", header=T)
 cond <- unique(cond[,c("var_win","cond")])
-data <- data %>% rbind(data2) %>% left_join(cond, by="cond")
+data <- data %>% left_join(cond, by="cond")
 
 #data$varwin_ratio <- data$varwin_end/data$varwin_start
 #data$varbtwn_ratio <- data$varbtwn_end/data$varbtwn_start
 data$mobility <- data$turnover*data$carriers
 data$random_entry <- data$turnover*(1-data$carriers)
-data$varbtwn_end <- data$varbtwn_end^2
-data$varbtwn_start <- data$varbtwn_start^2
-data$varwin_end <- data$varwin_end^2
-data$varwin_start <- data$varwin_start^2
-data$fstat_start <- 30 * data$varbtwn_start / data$varwin_start
-data$fstat_end <- 30 * data$varbtwn_end / data$varwin_end
+# data$varbtwn_end <- data$varbtwn_end^2
+# data$varbtwn_start <- data$varbtwn_start^2
+# data$varwin_end <- data$varwin_end^2
+# data$varwin_start <- data$varwin_start^2
+data$fstat_start <- 30 * data$varbtwn_start^2 / data$varwin_start^2
+data$fstat_end <- 30 * data$varbtwn_end^2 / data$varwin_end^2
 
 
 
@@ -223,9 +222,9 @@ stargazer(felm_mobility, felm_randomentry,
 
 
 
-ggplot(data[which(data$var_win==0.1 & data$s0==1 & data$r1==1 & data$b1==0.6 & data$alienate==1 & data$select==1),],
-               aes(x=factor(r0), y=fstat_end, col=factor(s1==1))) +
-  geom_violin() + theme_bw() +
+ggplot(data[which(data$var_win==0.1 & data$s1==1 & data$b1!=0 & data$r2==0.03 & data$select==1),],
+               aes(x=factor(r0), y=fstat_end, col=factor(s0==1))) +
+  geom_jitter() + theme_bw() +
   scale_color_discrete(name=element_blank(), labels=c("Interfirm Mobility", "No Mobility")) +
   xlab("Base Turnover Rate") + ylab(expression(F["stat"])) + theme(legend.position="top")
 

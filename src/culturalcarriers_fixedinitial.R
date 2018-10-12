@@ -42,7 +42,7 @@ params <- CJ(
   # turnover params
   r0 = c(0.0, 0.03, 0.06), # turnover base rate (3.5% monthly according to JOLTS)
   r1 = c(0.1, 1, 10), # turnover alienation rate
-  r2 = c(0.0, 0.03), # max increase in turnover probability
+  r2 = c(0.0, 0.05), # max increase in turnover probability
   
   # hiring params (no noise)
   select = c(0,1), # selectivity on
