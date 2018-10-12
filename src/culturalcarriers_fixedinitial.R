@@ -70,7 +70,6 @@ culture_fn <- function(par) {
   for (i in 1:t) {
     
     sims2 <- data.table(sims)
-    sims2[, tenure := tenure + 1]
     med_cult <- setorder(sims[, median(culture, na.rm=T), by=firm], firm)$V1
     
     ### Turnover first
@@ -80,13 +79,12 @@ culture_fn <- function(par) {
                                             sqrt(2*pi) * (dnorm(culture, med_cult[firm], par$r1))))]
 
     #  Restart tenure clock for departed employees
-    sims2[, tenure := tenure*(firm!=0)]
+    sims2[, tenure := (tenure+1) * (firm!=0)]
     
     ### Then socialization
     # no noise, no asymptotic socialization
-    sims2[, culture := culture +
-            (firm!=0) * (med_cult[firm] - culture) *
-            (par$b1 * exp(- (par$b2 * (tenure-1)) - (par$b3 * (employments-1))))]
+    sims2[firm!=0, culture := culture + (med_cult[firm] - culture) *
+                              par$b1 * exp(- (par$b2 * (tenure-1)) - (par$b3 * (employments-1)))]
     
     ### Then hiring
     # Track how many hires made each period
