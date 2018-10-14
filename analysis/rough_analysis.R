@@ -1,8 +1,8 @@
 library(tidyverse)
 
 setwd("~/Documents/GitHub/orgculture-ABM/")
-data <- read.csv("data/2018-10-11_results_partialparams.csv", header=T)
-cond <- read.csv("data/initial_conditions_201810_plots.csv", header=T)
+data <- read.csv("data/2018-10-13_results_fullparams.csv", header=T)
+cond <- read.csv("data/initial_conditions_201810.csv", header=T)
 cond <- unique(cond[,c("var_win","cond")])
 data <- data %>% left_join(cond, by="cond")
 
@@ -264,6 +264,6 @@ ggplot(data[which(data$var_win==1 & data$b1==0 & data$s1!=1),],
        aes(x=factor(s0), y=fstat_end, col=factor(r1))) +
   theme_bw() + geom_violin()
 
-
-
+ggplot(data[var_win==0.1 & s1==0.1 & b1==0,], aes(x=factor(r0), y=fstat_end, col=factor(s0==1))) +
+  geom_violin() + theme_bw()
 
