@@ -27,7 +27,7 @@ n <- 30 # number of employees per firm [10, 100, 1000]
 t <- 120 # number of time periods (months)
 
 ### Read in initializations
-init_conds <- read.csv("data/initial_conditions_201810_plots.csv", header=T)
+init_conds <- read.csv("data/initial_conditions_201810.csv", header=T)
 init_conds <- data.table(init_conds)
 
 ### Make data frame of varying parameter settings
@@ -144,7 +144,7 @@ culture_fn <- function(par) {
     geom_point(size=3, shape=21, alpha=0.8, color="black", aes(fill=as.numeric(row.names(stats)))) +
     theme_bw() + scale_fill_gradient(low = "yellow", high = "red") + labs(fill="month")
 
-  name <- paste("plots/", Sys.Date(), "_soc", par$b1, "_turnover", par$r0, "_alien", par$r1,
+  name <- paste("plots/", Sys.Date(), "/soc", par$b1, "_turnover", par$r0, "_alien", par$r1,
                 "_random", par$s0, "_select", par$s1, "_cond", par$cond,
                 ".png", sep="")
   ggsave(filename=name, plot=plot, units="in", width=6, height=6, pointsize=16)
