@@ -9,7 +9,7 @@ Recoded Apr 2018
 Recoded for fixed initial conditions Jun 2018
 Recoded for bug fixes Oct 2018
 
-Hiring by satisficing vs. optimizing
+Socialization on variation between
 
 @author: Anjali Bhatt
 "
@@ -32,24 +32,23 @@ init_conds <- data.table(init_conds)
 
 ### Make data frame of varying parameter settings
 params <- CJ(
-  optimize = c(0,1),
   cond = seq(1,30,3),
   rep_no = 1:n_reps,
   
   # socialization params (no noise)
   #b0 = 0.0, # asymptotic socialization susceptibility
-  b1 = c(0.0,0.3), # initial socialization susceptibility
+  b1 = 0.30, # initial socialization susceptibility
   b2 = 0.30, # speed of socialization susceptibility decline by tenure
   b3 = 0.10, # speed of socialization susceptibility decline by employments
   
   # turnover params
-  r0 = c(0.03), # turnover base rate (3.5% monthly according to JOLTS)
+  r0 = seq(0,0.1,0.1), # turnover base rate (3.5% monthly according to JOLTS)
   r1 = c(0.1), # turnover alienation rate
   r2 = c(0.05), # max increase in turnover probability
   
   # hiring params (no noise)
   s0 = c(0.03), # base rate of random entry
-  s1 = seq(0.1,1.5,0.1) # hiring selectivity threshold
+  s1 = 1 # hiring selectivity threshold
 )
 
 # deduplicate for iterations with functions off
@@ -108,50 +107,24 @@ culture_fn <- function(par) {
       }
       queue[, firm := firm[sample.int(length(firm))]]
       
-      if (par$optimize==1) {
-        # Iterate over ordered hiring spots
-        for (h in 1:stats$hires[i+1]) {
-          focal_firm <- queue$firm[h]
-          unemployed <- which(sims2$firm==0 & sims$firm!=focal_firm)
+      # Iterate over ordered hiring spots
+      for (h in 1:stats$hires[i+1]) {
+        focal_firm <- queue$firm[h]
+        
+        # unemployed pool is those within cultural threshold
+        unemployed <- which(sims2$firm==0 & sims$firm!=focal_firm &
+                              abs(sims2$culture - med_cult[focal_firm]) < 2*par$s1)
+        
+        # First check for new entry
+        if (queue$draw[h] | length(unemployed)==0) {
+          queue[h, culture := rnorm(1, med_cult[focal_firm], par$s1)]
           
-          # First check for random entry
-          if (queue$draw[h] | length(unemployed)==0) {
-            queue[h, culture := rnorm(1, med_cult[focal_firm], par$s1)]
-            
-          # Hire the now-unemployed person with the best cultural fit within the threshold
-          # Otherwise hire outside the existing pool
-          } else if ((min(abs(sims2$culture[unemployed] - med_cult[focal_firm]))) >= 2*par$s1) {
-            queue[h, culture := rnorm(1, med_cult[focal_firm], par$s1)]
-            
-          } else {
-            chosen <- unemployed[which.min(abs(sims2$culture[unemployed] - med_cult[focal_firm]))]
-            sims2[chosen, `:=`(firm = focal_firm,
-                               employments = employments + 1)]
-            stats[i+1, rehires := rehires + 1]
-          }
-        }
-      }
-      
-      if (par$optimize==0) {
-        # Iterate over ordered hiring spots
-        for (h in 1:stats$hires[i+1]) {
-          focal_firm <- queue$firm[h]
-          
-          # unemployed pool is those within cultural threshold
-          unemployed <- which(sims2$firm==0 & sims$firm!=focal_firm &
-                                abs(sims2$culture - med_cult[focal_firm]) < 2*par$s1)
-          
-          # First check for new entry
-          if (queue$draw[h] | length(unemployed)==0) {
-            queue[h, culture := rnorm(1, med_cult[focal_firm], par$s1)]
-            
-            # Else draw random unemployed
-          } else {
-            chosen <- unemployed[sample.int(length(unemployed), 1)]
-            sims2[chosen, `:=`(firm = focal_firm,
-                               employments = employments + 1)]
-            stats[i+1, rehires := rehires + 1]
-          }
+          # Else draw random unemployed
+        } else {
+          chosen <- unemployed[sample.int(length(unemployed), 1)]
+          sims2[chosen, `:=`(firm = focal_firm,
+                             employments = employments + 1)]
+          stats[i+1, rehires := rehires + 1]
         }
       }
       
@@ -198,5 +171,5 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-filename = paste("data/", Sys.Date(), "_results_detailedhiring.csv", sep="")
+filename = paste("data/", Sys.Date(), "_results_turnoverbtwn.csv", sep="")
 write.csv(global_stats, file=filename)
