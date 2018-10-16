@@ -42,7 +42,7 @@ params <- CJ(
   b3 = 0.10, # speed of socialization susceptibility decline by employments
   
   # turnover params
-  r0 = seq(0,0.1,0.1), # turnover base rate (3.5% monthly according to JOLTS)
+  r0 = seq(0,0.1,0.01), # turnover base rate (3.5% monthly according to JOLTS)
   r1 = c(0.1), # turnover alienation rate
   r2 = c(0.05), # max increase in turnover probability
   
