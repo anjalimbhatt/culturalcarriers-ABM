@@ -139,7 +139,7 @@ culture_fn <- function(par) {
         }
       }
       
-      if (par$optimize==1) {
+      if (par$optimize==0) {
         # Iterate over ordered hiring spots
         for (h in 1:stats$hires[i+1]) {
           focal_firm <- queue$firm[h]
