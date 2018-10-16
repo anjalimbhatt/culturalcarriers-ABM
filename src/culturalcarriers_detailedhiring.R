@@ -118,15 +118,8 @@ culture_fn <- function(par) {
           if (queue$draw[h] | length(unemployed)==0) {
             queue[h, culture := rnorm(1, med_cult[focal_firm], par$s1)]
             
-            # If no selectivity, then draw random unemployed
-          } else if (par$select==0) {
-            chosen <- unemployed[sample.int(length(unemployed), 1)]
-            sims2[chosen, `:=`(firm = focal_firm,
-                               employments = employments + 1)]
-            stats[i+1, rehires := rehires + 1]
-            
-            # Hire the now-unemployed person with the best cultural fit within the threshold
-            # Otherwise hire outside the existing pool
+          # Hire the now-unemployed person with the best cultural fit within the threshold
+          # Otherwise hire outside the existing pool
           } else if ((min(abs(sims2$culture[unemployed] - med_cult[focal_firm]))) >= 2*par$s1) {
             queue[h, culture := rnorm(1, med_cult[focal_firm], par$s1)]
             
