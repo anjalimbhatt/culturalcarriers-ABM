@@ -167,7 +167,7 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
   result <- cbind(result, params[i,])
   cat(i, '/', nrow(params), '\n')
   return(result)
-}, mc.cores=2)
+}, mc.cores=30)
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
