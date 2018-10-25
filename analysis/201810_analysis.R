@@ -10,6 +10,7 @@ library(tidyverse)
 library(data.table)
 library(plm)
 library(stargazer)
+library(gridExtra)
 
 # load data (satisficing hiring)
 setwd("~/Documents/GitHub/orgculture-ABM/")
@@ -106,39 +107,81 @@ plot <- ggplot(data, aes(x=r0, y=varbtwn_end/varbtwn_start)) +
 ggsave(filename="figures/varbtwn_turnover.png", plot=plot, units="in", width=6, height=5, pointsize=16)
 
 
+# all plots together
+alienationdata <- as.data.table(read.csv("data/2018-10-25_results_alienationbtwn.csv", header=T))
+alienationdata2 <- as.data.table(read.csv("data/2018-10-25_results_alienationbtwn_nomob.csv", header=T))
+alienation <- rbind(alienationdata, alienationdata2)
+hiring <- hiring %>% left_join(cond, by="cond") %>% as.data.table()
+socdata <- socdata %>% left_join(cond, by="cond") %>% as.data.table()
+alienation <- alienation %>% left_join(cond, by="cond") %>% as.data.table()
+
+varbtwn_alienation <- ggplot(alienation[s0!=1,], aes(x=r1, y=varbtwn_end/varbtwn_start)) +
+  geom_boxplot(aes(group=r1), outlier.alpha = 0.5) +
+  scale_y_continuous(limits=c(0,1)) +
+  xlab(expression(paste("Turnover Alienation Bandwidth ", r[1]))) +
+  ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["between"])))
+
+varbtwn_hiring <- ggplot(hiring[optimize==0,], aes(x=s1, y=varbtwn_end/varbtwn_start)) +
+  geom_boxplot(aes(group=s1), outlier.alpha = 0.5) +
+  scale_y_continuous(limits=c(0,1), labels=NULL) +
+  xlab(expression(paste("Hiring Selection Bandwidth ", s[1]))) +
+  ylab(NULL)
+
+varbtwn_soc <- ggplot(socdata, aes(x=b1, y=varbtwn_end/varbtwn_start)) +
+  geom_boxplot(aes(group=b1), outlier.alpha = 0.5) +
+  scale_y_continuous(limits=c(0,1), labels=NULL) +
+  xlab(expression(paste("Initial Socialization Rate ", b[1]))) +
+  ylab(NULL)
+
+ggsave(filename="figures/varbtwn_alien.png", plot=varbtwn_alienation, units="in", width=4, height=5, pointsize=16)
+ggsave(filename="figures/varbtwn_soc.png", plot=varbtwn_soc, units="in", width=4, height=5, pointsize=16)
+ggsave(filename="figures/varbtwn_hiring.png", plot=varbtwn_hiring, units="in", width=4, height=5, pointsize=16)
+
+
 ### WITHIN FIRM VARIATION
 hiring2 <- as.data.table(read.csv("data/2018-10-16_results_detailedhiring2.csv", header=T))
-data <- hiring[optimize==0,] %>% rbind(hiring2[s0==1,]) %>% left_join(cond, by="cond")
-data <- as.data.table(data)
-data[s0==1, mobility := "Isolated Firms"]
-data[s0==0.03, mobility := "Inter-firm Mobility"]
-plot <- ggplot(data[s1<=1.5,], aes(x=s1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
+hiring <- hiring[optimize==0,] %>% rbind(hiring2[s0==1,]) %>% left_join(cond, by="cond")
+hiring <- as.data.table(hiring)
+hiring[s0==1, mobility := "Isolated Firms"]
+hiring[s0==0.03, mobility := "Inter-firm Mobility"]
+varwin_hiring <- ggplot(hiring[s1<=1.5,], aes(x=s1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
   scale_color_manual(values=c("black","darkgrey"), guide=F) +
   geom_boxplot(aes(group=s1)) +
-  facet_grid(. ~ factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms"))) +
+  facet_grid(cols=factor(mobility)) +
   theme(panel.spacing = unit(1, "lines")) +
   xlab(expression(paste("Hiring Selection Bandwidth ", s[1]))) +
   ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
   scale_y_continuous(breaks=seq(0,15,3))
-ggsave(filename="figures/varwin_hiring.png", plot=plot, units="in", width=6, height=4, pointsize=16)
+ggsave(filename="figures/varwin_hiring.png", plot=varwin_hiring, units="in", width=6, height=3, pointsize=16)
 
 socdata <- as.data.table(read.csv("data/2018-10-15_results_socbtwn.csv", header=T))
 socdata2 <- as.data.table(read.csv("data/2018-10-16_results_socwin.csv", header=T))
-data <- socdata %>% rbind(socdata2) %>% left_join(cond, by="cond")
-data <- as.data.table(data)
-data[s0==1, mobility := "Isolated Firms"]
-data[s0==0.03, mobility := "Inter-firm Mobility"]
-plot <- ggplot(data, aes(x=b1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
+socdata <- socdata %>% rbind(socdata2) %>% left_join(cond, by="cond")
+socdata <- as.data.table(socdata)
+socdata[s0==1, mobility := "Isolated Firms"]
+socdata[s0==0.03, mobility := "Inter-firm Mobility"]
+varwin_soc <- ggplot(socdata, aes(x=b1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
   scale_color_manual(values=c("black","darkgrey"), guide=F) +
   geom_boxplot(aes(group=b1)) +
-  facet_grid(. ~ factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms"))) +
+  facet_grid(factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")) ~ .) +
   theme(panel.spacing = unit(1, "lines")) +
-  xlab(expression(paste("Initial Socialization Susceptibility ", b[1]))) +
+  xlab(expression(paste("Initial Socialization Rate ", b[1]))) +
   ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
-  scale_y_continuous(breaks=seq(0,10,1))
-ggsave(filename="figures/varwin_socialization.png", plot=plot, units="in", width=6, height=4, pointsize=16)
+  scale_y_continuous(limits=c(0,15), breaks=seq(0,15,3))
+ggsave(filename="figures/varwin_soc.png", plot=varwin_soc, units="in", width=6, height=3, pointsize=16)
 
-
+# all together
+alienation[s0==1, mobility := "Isolated Firms"]
+alienation[s0==0.03, mobility := "Inter-firm Mobility"]
+varwin_alienation <- ggplot(alienation, aes(x=r1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
+  scale_color_manual(values=c("black","darkgrey"), guide=F) +
+  geom_boxplot(aes(group=r1), outlier.alpha = 0.5) +
+  facet_grid(factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")) ~ .) +
+  theme(panel.spacing = unit(1, "lines")) +
+  scale_y_continuous(limits=c(0,15), breaks=seq(0,15,3)) +
+  xlab(expression(paste("Turnover Alienation Bandwidth ", r[1]))) +
+  ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["within"])))
+ggsave(filename="figures/varwin_alien.png", plot=varwin_alienation, units="in", width=6, height=3, pointsize=16)
 
 #FSTAT
 # 
