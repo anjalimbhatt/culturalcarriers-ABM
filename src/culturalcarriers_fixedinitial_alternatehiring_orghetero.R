@@ -8,47 +8,56 @@ Originally written March 2017
 Recoded Apr 2018
 Recoded for fixed initial conditions Jun 2018
 Recoded for bug fixes Oct 2018
-Recoded Apr 2019: turnover > hiring > socialization
+Adapted for org heterogeneity April 2019
+
+Hiring by satisficing instead of optimizing
+Left order as turnover > socialization > hiring (may switch later)
 
 @author: Anjali Bhatt
 "
 
-setwd("/home/users/ambhatt/afs-home/Git/orgculture-ABM")
-#setwd("~/Documents/GitHub/orgculture-ABM")
+#setwd("/afs/.ir/users/a/m/ambhatt/Git/orgculture-ABM/")
+setwd("~/Documents/GitHub/orgculture-ABM")
+library(tidyverse)
 library(data.table)
 library(matrixStats)
 library(parallel)
-library(ggplot2)
 
 ### Set global parameters for simulations
-n_reps <- 5 # number of replications per set of parameters, per initial condition
+n_reps <- 3 # number of replications per set of parameters, per initial condition
 f <- 30 # number of firms
 n <- 30 # number of employees per firm [10, 100, 1000]
 t <- 120 # number of time periods (months)
 
-### Read in initializations
-init_conds <- read.csv("data/initial_conditions_201810.csv", header=T)
-init_conds <- data.table(init_conds)
+### Read in initializations (subset)
+init_conds <- read.csv("data/initial_conditions_hetero_201904.csv", header=T)
+init_conds <- init_conds %>% data.table()
 
 ### Make data frame of varying parameter settings
 params <- CJ(
-  cond = seq(1,30,3),
+  cond = unique(init_conds$cond),
   rep_no = 1:n_reps,
   
   # socialization params (no noise)
   #b0 = 0.0, # asymptotic socialization susceptibility
-  b1 = seq(0,1,0.1), # initial socialization susceptibility
+  b1 = 0.3, # initial socialization susceptibility
   b2 = 0.30, # speed of socialization susceptibility decline by tenure
   b3 = 0.10, # speed of socialization susceptibility decline by employments
   
   # turnover params
-  r0 = c(0.03), # turnover base rate (3.5% monthly according to JOLTS)
-  r1 = c(0.1), # turnover alienation rate
-  r2 = c(0.05), # max increase in turnover probability
+  r0 = 0.03, # turnover base rate (3.5% monthly according to JOLTS)
+  r1 = c(0.1,1), # turnover alienation rate
+  r2 = 0.05, # max increase in turnover probability
   
   # hiring params (no noise)
-  s0 = c(0.03), # base rate of random entry
-  s1 = seq(0.1,1.5,0.1) # hiring selectivity threshold
+  s0 = 0.03, # base rate of random entry
+  s1 = 1, # hiring selectivity threshold
+  
+  # org heterogeneity
+  #n_tight = c(1,2), # number of tight organizations
+  b1_tight = 0.6,
+  r1_tight = 0.1,
+  s1_tight = 0.1
 )
 
 # deduplicate for iterations with functions off
@@ -60,11 +69,27 @@ culture_fn <- function(par) {
   
   ### Create local copy of initial conditions
   sims <- init_conds[cond==par$cond, list(firm, culture, tenure, employments)]
+  n_emps <- nrow(sims)
   
   ### Initialize stats
-  stats <- data.table(var_win=rep(0, t+1), var_btwn=0, hires=0, rehires=0)
+  stats <- data.table(var_win=rep(0, t+1), var_btwn=0, hires=0, rehires=0, mean_cult=0)
   stats[1, var_win := mean(sims[, sd(culture, na.rm=T), by=firm]$V1)]
   stats[1, var_btwn := sd(sims[, median(culture, na.rm=T), by=firm]$V1)]
+  stats[1, mean_cult := mean(sims[, median(culture, na.rm=T), by=firm]$V1)]
+  
+  ### Create parameters by firm
+  firms <- data.table(firm=1:(f+1),
+                      culture=sims[, median(culture, na.rm=T), by=firm]$V1,
+                      b1=par$b1,
+                      r1=par$r1,
+                      s1=par$s1,
+                      size=sims[, .N, by=firm]$N)
+  
+  ### Change cultural management for selected firms (linked to init conds)
+  firms[(f+1), c('b1', 'r1', 's1') := .(par$b1_tight, par$r1_tight, par$s1_tight)]
+  # if(par$n_tight==2) {
+  #   firms[2, c('b1', 'r1', 's1') := .(par$b1_tight, par$r1_tight, par$s1_tight)]
+  # }
   
   ### Loop over months
   for (i in 1:t) {
@@ -75,15 +100,18 @@ culture_fn <- function(par) {
     ### Turnover first
     # If no alienation, then assume only base turnover rate
     # Otherwise, retention is modeled as a gaussian shape
-    sims2[, firm := firm * (runif(n*f) > ((par$r0 + par$r2) - par$r2 * par$r1 *
-                                            sqrt(2*pi) * (dnorm(culture, med_cult[firm], par$r1))))]
-    
+    sims2[, firm := firm * (runif(n_emps) > ((par$r0 + par$r2) - par$r2 * firms$r1[firm] *
+                                            sqrt(2*pi) * (dnorm(culture, med_cult[firm], firms$r1[firm]))))]
+
     #  Restart tenure clock for departed employees
     sims2[, tenure := (tenure+1) * (firm!=0)]
-
-    ### Then hiring (recalculate firm culture)
-    med_cult <- setorder(sims2[firm!=0, median(culture, na.rm=T), by=firm], firm)$V1
     
+    ### Then socialization
+    # no noise, no asymptotic socialization
+    sims2[firm!=0, culture := culture + (med_cult[firm] - culture) *
+            firms$b1[firm] * exp(- (par$b2 * (tenure-1)) - (par$b3 * (employments-1)))]
+    
+    ### Then hiring
     # Track how many hires made each period
     stats$hires[i+1] <- sum(sims2$firm==0)
     
@@ -95,8 +123,8 @@ culture_fn <- function(par) {
                           employments=ceiling(rlnorm(stats$hires[i+1],0,0.5)),
                           draw = (runif(stats$hires[i+1]) <= par$s0))
       j <- 1
-      for (k in 1:f) {
-        hires <- n - sum(sims2$firm==k)
+      for (k in 1:(f+1)) {
+        hires <- firms$size[k] - sum(sims2$firm==k)
         if (hires>0) {
           queue[j:(j + hires - 1), firm := k]
           j <- j + hires
@@ -110,11 +138,11 @@ culture_fn <- function(par) {
         
         # unemployed pool is those within cultural threshold
         unemployed <- which(sims2$firm==0 & sims$firm!=focal_firm &
-                              abs(sims2$culture - med_cult[focal_firm]) < 2*par$s1)
+                              abs(sims2$culture - med_cult[focal_firm]) < 2*firms$s1[focal_firm])
         
         # First check for new entry
         if (queue$draw[h] | length(unemployed)==0) {
-          queue[h, culture := rnorm(1, med_cult[focal_firm], par$s1)]
+          queue[h, culture := rnorm(1, med_cult[focal_firm], firms$s1[focal_firm])]
           
           # Else draw random unemployed
         } else {
@@ -131,15 +159,10 @@ culture_fn <- function(par) {
       
     }
     
-    ### Then socialization (recalculate firm culture)
-    med_cult <- setorder(sims[, median(culture, na.rm=T), by=firm], firm)$V1
-    # no noise, no asymptotic socialization
-    sims[, culture := culture + (med_cult[firm] - culture) *
-            par$b1 * exp(- (par$b2 * (tenure-1)) - (par$b3 * (employments-1)))]
-    
     # Calculate statistics
     stats[i+1, var_win := mean(sims[, sd(culture, na.rm=T), by=firm]$V1)]
     stats[i+1, var_btwn := sd(sims[, median(culture, na.rm=T), by=firm]$V1)]
+    stats[i+1, mean_cult := mean(sims[, median(culture, na.rm=T), by=firm]$V1)]
   }
   
   # # Plot (once per parameter set and initial condition)
@@ -155,9 +178,11 @@ culture_fn <- function(par) {
   ### Return summary statistics for each simulation run
   summary <- data.table(varbtwn_start = stats$var_btwn[1],
                         varwin_start = stats$var_win[1],
+                        meancult_start = stats$mean_cult[1],
                         varbtwn_end = stats$var_btwn[t+1],
                         varwin_end = stats$var_win[t+1],
-                        turnover = mean(stats$hires)/(n*f),
+                        meancult_end = stats$mean_cult[t+1],
+                        turnover = mean(stats$hires)/(n_emps),
                         carriers = mean(stats$rehires/stats$hires, na.rm=T),
                         tenure_end = median(sims$tenure),
                         emps_end = median(sims$employments))
@@ -170,9 +195,9 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
   result <- cbind(result, params[i,])
   cat(i, '/', nrow(params), '\n')
   return(result)
-}, mc.cores=16)
+}, mc.cores=2)
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-filename = paste("data/", Sys.Date(), "_results_fstat_socafter.csv", sep="")
+filename = paste("data/", Sys.Date(), "_results_orghetero_alternatehiring.csv", sep="")
 write.csv(global_stats, file=filename)

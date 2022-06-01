@@ -11,6 +11,7 @@ library(data.table)
 library(plm)
 library(stargazer)
 library(gridExtra)
+library(scales)
 
 # load data (satisficing hiring)
 setwd("~/Documents/GitHub/orgculture-ABM/")
@@ -147,12 +148,13 @@ hiring[s0==0.03, mobility := "Inter-firm Mobility"]
 varwin_hiring <- ggplot(hiring[s1<=1.5,], aes(x=s1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
   scale_color_manual(values=c("black","darkgrey"), guide=F) +
   geom_boxplot(aes(group=s1)) +
-  facet_grid(cols=factor(mobility)) +
+  facet_grid(rows=vars(mobility)) +
   theme(panel.spacing = unit(1, "lines")) +
   xlab(expression(paste("Hiring Selection Bandwidth ", s[1]))) +
   ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
-  scale_y_continuous(breaks=seq(0,15,3))
-ggsave(filename="figures/varwin_hiring.png", plot=varwin_hiring, units="in", width=6, height=3, pointsize=16)
+  scale_y_continuous(limits=c(0,15), breaks=seq(0,15,3), labels=NULL) +
+  ylab(NULL)
+ggsave(filename="figures/varwin_hiring.png", plot=varwin_hiring, units="in", width=3, height=6, pointsize=16)
 
 socdata <- as.data.table(read.csv("data/2018-10-15_results_socbtwn.csv", header=T))
 socdata2 <- as.data.table(read.csv("data/2018-10-16_results_socwin.csv", header=T))
@@ -163,12 +165,13 @@ socdata[s0==0.03, mobility := "Inter-firm Mobility"]
 varwin_soc <- ggplot(socdata, aes(x=b1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
   scale_color_manual(values=c("black","darkgrey"), guide=F) +
   geom_boxplot(aes(group=b1)) +
-  facet_grid(factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")) ~ .) +
+  facet_grid(rows=vars(mobility)) +
   theme(panel.spacing = unit(1, "lines")) +
   xlab(expression(paste("Initial Socialization Rate ", b[1]))) +
   ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
-  scale_y_continuous(limits=c(0,15), breaks=seq(0,15,3))
-ggsave(filename="figures/varwin_soc.png", plot=varwin_soc, units="in", width=6, height=3, pointsize=16)
+  scale_y_continuous(limits=c(0,15), breaks=seq(0,15,3), labels=NULL) +
+  ylab(NULL)
+ggsave(filename="figures/varwin_soc.png", plot=varwin_soc, units="in", width=3, height=6, pointsize=16)
 
 # all together
 alienation[s0==1, mobility := "Isolated Firms"]
@@ -176,14 +179,54 @@ alienation[s0==0.03, mobility := "Inter-firm Mobility"]
 varwin_alienation <- ggplot(alienation, aes(x=r1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
   scale_color_manual(values=c("black","darkgrey"), guide=F) +
   geom_boxplot(aes(group=r1), outlier.alpha = 0.5) +
-  facet_grid(factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")) ~ .) +
+  facet_grid(rows=vars(mobility)) +
   theme(panel.spacing = unit(1, "lines")) +
   scale_y_continuous(limits=c(0,15), breaks=seq(0,15,3)) +
   xlab(expression(paste("Turnover Alienation Bandwidth ", r[1]))) +
   ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["within"])))
-ggsave(filename="figures/varwin_alien.png", plot=varwin_alienation, units="in", width=6, height=3, pointsize=16)
+ggsave(filename="figures/varwin_alien.png", plot=varwin_alienation, units="in", width=3, height=6, pointsize=16)
 
 #FSTAT
+fstat_data <- as.data.table(read.csv("data/2018-10-25_results_fstat.csv", header=T))
+fstat_data <- as.data.table(read.csv("data/2019-04-23_results.csv", header=T))
+fstat_data[,`:=`(f_start = 30 * varbtwn_start^2 / varwin_start^2,
+                 f_end = 30 * varbtwn_end^2 / varwin_end^2)]
+fstat_data[, f_ratio := f_end/f_start]
+
+f1 <- ggplot(fstat_data, aes(s1, b1)) + geom_tile(aes(fill = f_ratio), colour = "white") +
+  scale_fill_gradient2(trans="log10",
+                       breaks=c(0.0005,0.01,0.1,1,50), labels=c("Convergence",0.01,0.1,1,"Segregation"),
+                       low = muted("blue"), mid = "white", high = muted("red"),
+                      name = expression(paste("Ratio of final to initial ", tilde(F)["stat"]))) +
+  xlab(expression(paste("Hiring Selection Bandwidth ", s[1]))) +
+  ylab(expression(paste("Initial Socialization Rate ", b[1])))
+
+f2 <- ggplot(fstat_data, aes(s1, b1)) + geom_tile(aes(fill = varwin_end/varwin_start), colour = "white") +
+  scale_fill_gradient2(trans="log10", limits=c(0.1,13),
+                       breaks=c(0.1,0.3,1,3,10), labels=c("Strengthened Culture",0.3,1,3,"Weakened Culture"),
+                      name = expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
+  xlab(expression(paste("Hiring Selection Bandwidth ", s[1]))) +
+  ylab(expression(paste("Initial Socialization Rate ", b[1])))
+
+f1 <- ggplot(fstat_data, aes(s1, b1)) + geom_tile(aes(fill = f_ratio), colour = "white") +
+  scale_fill_gradient2(trans="log10",
+                       breaks=c(0.001,0.1,1,10,1000), labels=c("Convergence",0.1,1,10,"Segregation"),
+                       low = muted("blue"), mid = "white", high = muted("red"),
+                       name = expression(paste("Ratio of final to initial ", tilde(F)["stat"]))) +
+  xlab(expression(paste("Hiring Selection Bandwidth ", s[1]))) +
+  ylab(expression(paste("Initial Socialization Rate ", b[1])))
+
+f2 <- ggplot(fstat_data, aes(s1, b1)) + geom_tile(aes(fill = varwin_end/varwin_start), colour = "white") +
+  scale_fill_gradient2(trans="log10", limits=c(0.01,13),
+                       breaks=c(0.1,0.3,1,3,10), labels=c("Strengthened Culture",0.3,1,3,"Weakened Culture"),
+                       name = expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
+  xlab(expression(paste("Hiring Selection Bandwidth ", s[1]))) +
+  ylab(expression(paste("Initial Socialization Rate ", b[1])))
+
+fstat_plot <- grid.arrange(f1, f2, nrow=2)
+ggsave(filename="figures/fstat_reordered.png", plot=fstat_plot, units="in", width=8, height=10, pointsize=16)
+
+
 # 
 # felm_fstat <- plm(log10(fstat_end/fstat_start) ~
 #                       b1 + r0 + log10(r1) + log10(s1),
