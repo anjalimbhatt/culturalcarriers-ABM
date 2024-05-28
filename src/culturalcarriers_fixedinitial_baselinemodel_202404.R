@@ -65,7 +65,7 @@ params <- CJ(
 culture_fn <- function(par) {
   
   ### Create local copy of initial conditions
-  sims <- init_conds[sim_no==par$cond, list(firm, c1, c2, tenure, employments)]
+  sims <- init_conds[sim_no==par$cond, list(firm, culture, tenure, employments)]
   
   ### Initialize stats
   stats <- data.table(var_win=rep(0, t+1), var_btwn=0, hires=0, rehires=0)
