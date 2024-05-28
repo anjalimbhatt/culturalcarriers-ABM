@@ -14,7 +14,12 @@ Recoded Apr 2024: for new HBS cluster
 @author: Anjali Bhatt
 "
 
-setwd("/export/projects1/abhatt_culturalcarriers/")
+### Define workspace details
+setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
+filename = paste("data/", Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
+n_cores <- as.integer(Sys.getenv('LSB_DJOB_NUMPROC')) # detect number of CPUs for parallelization
+
+### Load libraries
 library(data.table)
 library(matrixStats)
 library(parallel)
@@ -36,18 +41,18 @@ params <- CJ(
   
   # socialization params (no noise)
   #b0 = 0.0, # asymptotic socialization susceptibility
-  b1 = seq(0,1,0.1), # initial socialization susceptibility
+  b1 = seq(0, 1, 0.1), # initial socialization susceptibility
   b2 = 0.30, # speed of socialization susceptibility decline by tenure
   b3 = 0.10, # speed of socialization susceptibility decline by employments
   
   # turnover params
-  r0 = c(0.01,0.05), # turnover base rate (3.5% monthly according to JOLTS)
-  r1 = seq(0.1,1.5,0.1), # turnover alienation rate
+  r0 = c(0.01, 0.05), # turnover base rate (3.5% monthly according to JOLTS)
+  r1 = seq(0.1, 1.0, 0.1), # turnover alienation rate
   r2 = c(0.05), # max increase in turnover probability
   
   # hiring params (no noise)
-  s0 = c(0.03, 0.10, 1.0), # base rate of random entry
-  s1 = seq(0.1,1.5,0.1) # hiring selectivity threshold
+  s0 = c(0.03, 1.0), # base rate of random entry
+  s1 = seq(0.1, 1.0, 0.1) # hiring selectivity threshold
 )
 
 # deduplicate for iterations with functions off
@@ -163,9 +168,8 @@ mc_stats <- mclapply(1:nrow(params), function(i) {
   result <- cbind(result, params[i,])
   cat(i, '/', nrow(params), '\n')
   return(result)
-}, mc.cores=16) #UPDATE WITH NUMBER OF CORES FROM SYSTEM
+}, mc.cores=n_cores)
 global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-filename = paste("data/", Sys.Date(), "_results_baselinemodel.csv", sep="") # PUT AT TOP OF FILE
 write.csv(global_stats, file=filename)

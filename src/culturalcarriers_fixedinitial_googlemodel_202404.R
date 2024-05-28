@@ -9,7 +9,7 @@ Coded Apr 2024: Behemoth Model (aka Google)
 @author: Anjali Bhatt
 "
 
-setwd("/export/projects1/abhatt_culturalcarriers/")
+setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
 library(data.table)
 library(matrixStats)
 library(parallel)
