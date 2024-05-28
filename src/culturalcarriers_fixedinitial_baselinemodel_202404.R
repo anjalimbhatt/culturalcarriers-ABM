@@ -2,7 +2,8 @@
 Cultural Transmission & Variation in Organizational Populations
 Simulations over parameter grid and fixed initial conditions
 
-Use source() to run code on server
+To run via command line:
+bsub -q short -n 16 -M 5G -hl src/culturalcarriers_fixedinitial_baselinemodel_202404.R
 
 Originally written March 2017
 Recoded Apr 2018
