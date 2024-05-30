@@ -16,9 +16,9 @@
 #' "
 
 ### Define workspace details
-setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
-filename <- paste("data/", Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
-# filename <- paste(Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
+# setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
+# filename <- paste("data/", Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
+filename <- paste(Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
 n_cores <- as.integer(Sys.getenv('LSB_DJOB_NUMPROC')) # detect number of CPUs for parallelization
 
 ### Load libraries
@@ -33,8 +33,8 @@ n <- 30 # number of employees per firm [10, 100, 1000]
 t <- 120 # number of time periods (months)
 
 ### Read in initializations
-init_conds <- read.csv("data/input/initial_conditions_201810.csv", header=T)
-# init_conds <- read.csv("initial_conditions_201810.csv", header=T)
+# init_conds <- read.csv("data/input/initial_conditions_201810.csv", header=T)
+init_conds <- read.csv("initial_conditions_201810_HBSGRID.csv", header=T)
 init_conds <- data.table(init_conds)
 init_conds <- init_conds[var_win == 0.1] # subset for relevant initial variance within firms
 
