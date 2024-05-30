@@ -1,24 +1,25 @@
-#' "
-#' Cultural Transmission & Variation in Organizational Populations
-#' Simulations over parameter grid and fixed initial conditions
-#' 
-#' To run via command line:
-#' bsub -q short -n 16 -M 5G -hl src/culturalcarriers_fixedinitial_baselinemodel_202404.R
-#' 
-#' Originally written March 2017
-#' Recoded Apr 2018
-#' Recoded for fixed initial conditions Jun 2018
-#' Recoded for bug fixes Oct 2018
-#' Recoded Apr 2019: turnover > hiring > socialization
-#' Recoded Apr 2024: for new HBS cluster
-#' 
-#' @author: Anjali Bhatt
-#' "
+#!/bin/env R
+
+"
+Cultural Transmission & Variation in Organizational Populations
+Simulations over parameter grid and fixed initial conditions
+
+To run via command line:
+bsub -q short -n 16 -M 5G -hl src/culturalcarriers_fixedinitial_baselinemodel_202404.R
+
+Originally written March 2017
+Recoded Apr 2018
+Recoded for fixed initial conditions Jun 2018
+Recoded for bug fixes Oct 2018
+Recoded Apr 2019: turnover > hiring > socialization
+Recoded Apr 2024: for new HBS cluster
+
+@author: Anjali Bhatt
+"
 
 ### Define workspace details
-setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
+# setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
 filename <- paste("data/", Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
-# filename <- paste(Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
 n_cores <- as.integer(Sys.getenv('LSB_DJOB_NUMPROC')) # detect number of CPUs for parallelization
 
 ### Load libraries
@@ -34,7 +35,6 @@ t <- 120 # number of time periods (months)
 
 ### Read in initializations
 init_conds <- read.csv("data/input/initial_conditions_201810.csv", header=T)
-# init_conds <- read.csv("initial_conditions_201810.csv", header=T)
 init_conds <- data.table(init_conds)
 init_conds <- init_conds[var_win == 0.1] # subset for relevant initial variance within firms
 

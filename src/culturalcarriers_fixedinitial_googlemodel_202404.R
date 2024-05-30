@@ -1,3 +1,5 @@
+#!/bin/env R
+
 "
 Cultural Transmission & Variation in Organizational Populations
 Simulations over parameter grid and fixed initial conditions
