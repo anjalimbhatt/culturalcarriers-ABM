@@ -1,4 +1,4 @@
-#!/bin/env R
+#!/bin/env Rscript
 
 "
 Cultural Transmission & Variation in Organizational Populations
