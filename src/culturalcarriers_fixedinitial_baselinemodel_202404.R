@@ -5,7 +5,7 @@
 # 
 # To run via command line:
 # bsub < ./src/runbaselinemodel.sh
-# bsub -q short -n 16 -R "rusage[mem=5G]" -M 5G -hl -o ./log/baselinemodel_%J.out Rscript ./src/culturalcarriers_fixedinitial_baselinemodel_202404.R
+# bsub -q short -n 16 -R "rusage[mem=5G]" -M 15G -hl -o ./log/baselinemodel_%J.out Rscript ./src/culturalcarriers_fixedinitial_baselinemodel_202404.R
 # 
 # Originally written March 2017
 # Recoded Apr 2018
@@ -58,9 +58,8 @@ params <- CJ(
   s1 = seq(0.1, 1.0, 0.1) # hiring selectivity threshold
 )
 
-# deduplicate for iterations with functions off
-# params[r2 == 0, c('r1') := 1]
-# params <- unique(params)
+### FOR TEST USE ONLY
+# params <- params[1:100]
 
 ### Define function for cultural evolution in population
 culture_fn <- function(par) {

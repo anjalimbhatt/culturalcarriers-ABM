@@ -5,7 +5,7 @@
 # 
 # To run via command line:
 # bsub < ./src/rungooglemodel.sh
-# bsub -q short -n 16 -R "rusage[mem=5G]" -M 5G -hl -o ./log/googlemodel_%J.out Rscript ./src/culturalcarriers_fixedinitial_googlemodel_202404.R
+# bsub -q short -n 16 -R "rusage[mem=5G]" -M 15G -hl -o ./log/googlemodel_%J.out Rscript ./src/culturalcarriers_fixedinitial_googlemodel_202404.R
 # 
 # Coded Apr 2024: Behemoth Model (aka Google)
 # 
