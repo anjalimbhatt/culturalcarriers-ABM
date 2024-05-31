@@ -100,32 +100,25 @@ culture_fn <- function(par) {
     
     if (stats$hires[i+1] > 0) {
       # Set random order of hiring and prepopulate random entrant info
-      queue <- data.table(firm = rep(0, stats$hires[i+1]),
-                          culture = 0,
+      queue <- data.table(firm = sims[sims2$firm==0,firm],
+                          culture = NA,
                           tenure = 0,
                           employments=ceiling(rlnorm(stats$hires[i+1],0,0.5)),
                           draw = (runif(stats$hires[i+1]) <= par$s0))
-      j <- 1
-      for (k in 1:f) {
-        hires <- n - sum(sims2$firm==k)
-        if (hires>0) {
-          queue[j:(j + hires - 1), firm := k]
-          j <- j + hires
-        }
-      }
+
       queue[, firm := firm[sample.int(length(firm))]]
       
       # Iterate over ordered hiring spots
-      for (h in 1:stats$hires[i+1]) {
-        focal_firm <- queue$firm[h]
+      for (j in 1:stats$hires[i+1]) {
+        focal_firm <- queue$firm[j]
         
         # unemployed pool is those within cultural threshold
         unemployed <- which(sims2$firm==0 & sims$firm!=focal_firm &
                               abs(sims2$culture - med_cult[focal_firm]) < 2*par$s1)
         
         # First check for new entry
-        if (queue$draw[h] | length(unemployed)==0) {
-          queue[h, culture := rnorm(1, med_cult[focal_firm], par$s1)]
+        if (queue$draw[j] | length(unemployed)==0) {
+          queue[j, culture := rnorm(1, med_cult[focal_firm], par$s1)]
           
           # Else draw random unemployed
         } else {
@@ -139,7 +132,7 @@ culture_fn <- function(par) {
       # Reset copy of df based on changes to population
       # Append all random entrants and remove all non-hires
       sims <- rbind(sims2[firm!=0],
-                    queue[culture!=0, list(firm, culture, tenure, employments)])
+                    queue[!is.na(culture), list(firm, culture, tenure, employments)])
       
     }
     
@@ -169,7 +162,7 @@ culture_fn <- function(par) {
 ### Apply culture evolution function for each set of parameters
 mc_stats <- mclapply(1:nrow(params), function(i) {
   result <- culture_fn(params[i,])
-  result <- cbind(result, params[i,])
+  result <- cbind(params[i,], result)
   cat(i, '/', nrow(params), '\n')
   return(result)
 }, mc.cores=n_cores)

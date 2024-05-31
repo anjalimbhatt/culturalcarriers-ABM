@@ -11,7 +11,12 @@ Coded Apr 2024: Behemoth Model (aka Google)
 @author: Anjali Bhatt
 "
 
-setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
+### Define workspace details
+# setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
+filename <- paste("data/", Sys.Date(), "_results_googlemodel.csv", sep="") # output file
+n_cores <- as.integer(Sys.getenv('LSB_DJOB_NUMPROC')) # detect number of CPUs for parallelization
+
+### Load libraries
 library(data.table)
 library(matrixStats)
 library(parallel)
@@ -26,8 +31,11 @@ c_google <- 2 # initial culture of behemoth
 t <- 120 # number of time periods (months)
 
 ### Read in initializations
-init_conds <- read.csv("data/initial_conditions_google.csv", header=T)
+init_conds <- read.csv("data/input/initial_conditions_201810.csv", header=T)
 init_conds <- data.table(init_conds)
+init_conds <- init_conds[var_win == 0.1] # subset for relevant initial variance within firms
+n_conds <- length(unique(init_conds$cond)) # number of unique conditions after subsetting
+init_conds[firm > f, `:=` (firm = f_google, culture = rnorm(n_google * n_conds, c_google, var_win))]
 
 ### Make data frame of varying parameter settings
 params <- CJ(
@@ -47,40 +55,39 @@ params <- CJ(
   
   # hiring params (no noise)
   s0 = c(0.03), # base rate of random entry
-  s1 = seq(0.1,1.5,0.1), # hiring selectivity threshold
+  s1 = seq(0.1,1.0,0.1), # hiring selectivity threshold
   
   # behemoth params
-  s0_google = s0, # base rate of random entry for behemoth
-  r1_google = c(0.3, 1.0), # turnover alienation for behemoth
-  b1_google = c(0.1, 0.7), # socialization susc for behemoth
-  s1_google = c(0.3, 1.0) # selectivity for behemoth
+  # s0_google = s0, # assume base rate of random entry for behemoth is same as others
+  r1_google = c(0.2, 0.8), # turnover alienation for behemoth
+  b1_google = c(0.2, 0.8), # socialization susc for behemoth
+  s1_google = c(0.2, 0.8) # selectivity for behemoth
   
 )
 
-# deduplicate for iterations with functions off
-# params[r2 == 0, c('r1') := 1]
-# params <- unique(params)
+### FOR TEST USE ONLY
+params <- params[1:100]
 
 ### Define function for cultural evolution in population
 culture_fn <- function(par) {
   
   ### Create local copy of initial conditions
-  sims <- init_conds[sim_no==par$cond, list(firm, c, tenure, employments)]
+  sims <- init_conds[sim_no==par$cond, list(firm, culture, tenure, employments)]
   
   ### Initialize stats
   stats <- data.table(var_win_other=rep(0, t+1), # within-firm variance for others per period
                       var_win_google=0, # within-firm variance for behemoth per period
                       c_google = 0, # median culture for behemoth per period
-                      c_other = 0, # median culture for others per period
+                      c_other = 0, # mean of median culture for others per period
                       hires_other=0, # total hires for other firms per period
                       hires_google=0, # total hires for behemoth per period
                       google_to_other=0, # rehires from behemoth to others per period
                       other_to_other=0, # rehires from other to other per period
                       other_to_google=0) # rehires from other to behemoth per period
   stats[1, var_win_other := mean(sims[firm!=f_google, sd(culture, na.rm=T), by=firm]$V1)]
-  stats[1, var_win_google := sims[firm==f_google, sd(culture, na.rm=T)]$V1]
+  stats[1, var_win_google := sims[firm==f_google, sd(culture, na.rm=T)]]
+  stats[1, c_google := sims[firm==f_google, median(culture, na.rm=T)]]
   stats[1, c_other := mean(sims[firm!=f_google, median(culture, na.rm=T), by=firm]$V1)]
-  stats[1, c_google := sims[firm==f_google, median(culture, na.rm=T)]$V1]
   
   ### Loop over months
   for (i in 1:t) {
@@ -110,85 +117,115 @@ culture_fn <- function(par) {
     ### HIRING
    
     # Track how many hires made each period
-    stats$hires[i+1] <- sum(sims2$firm==0)
+    departures <- sum(sims2$firm==0)
+    stats$hires_other[i+1] <- sum(sims$firm!=f_google & sims2$firm==0)
+    stats$hires_google[i+1] <- sum(sims$firm==f_google & sims2$firm==0)
     
-    if (stats$hires[i+1] > 0) {
+    if (departures > 0) {
       # Set random order of hiring and prepopulate random entrant info
-      queue <- data.table(firm = rep(0, stats$hires[i+1]),
-                          culture = 0,
+      queue <- data.table(firm = sims[sims2$firm==0,firm],
+                          culture = NA,
                           tenure = 0,
-                          employments=ceiling(rlnorm(stats$hires[i+1],0,0.5)),
-                          draw = (runif(stats$hires[i+1]) <= par$s0))
-      j <- 1
-      for (k in 1:f) {
-        hires <- n - sum(sims2$firm==k)
-        if (hires>0) {
-          queue[j:(j + hires - 1), firm := k]
-          j <- j + hires
-        }
-      }
+                          employments=ceiling(rlnorm(departures,0,0.5)),
+                          draw = (runif(departures) <= par$s0))
+      
       queue[, firm := firm[sample.int(length(firm))]]
       
       # Iterate over ordered hiring spots
-      for (h in 1:stats$hires[i+1]) {
-        focal_firm <- queue$firm[h]
+      for (j in 1:departures) {
+        focal_firm <- queue$firm[j]
+        
+        # determine selectivity of firm 
+        if(focal_firm == f_google) {
+          s1 <- par$s1_google
+        } else
+          s1 <- par$s1
         
         # unemployed pool is those within cultural threshold
         unemployed <- which(sims2$firm==0 & sims$firm!=focal_firm &
-                              abs(sims2$culture - med_cult[focal_firm]) < 2*par$s1)
+                              abs(sims2$culture - med_cult[focal_firm]) < 2*s1)
         
         # First check for new entry
-        if (queue$draw[h] | length(unemployed)==0) {
-          queue[h, culture := rnorm(1, med_cult[focal_firm], par$s1)]
+        if (queue$draw[j] | length(unemployed)==0) {
+          queue[j, culture := rnorm(1, med_cult[focal_firm], s1)]
           
-          # Else draw random unemployed
+        # Else draw random unemployed
         } else {
           chosen <- unemployed[sample.int(length(unemployed), 1)]
           sims2[chosen, `:=`(firm = focal_firm,
                              employments = employments + 1)]
-          stats[i+1, rehires := rehires + 1]
+          
+          # update count if rehire is joining behemoth
+          if (focal_firm == f_google) {
+            stats[i+1, other_to_google := other_to_google + 1]
+            
+          # update count if rehire was previously at behemoth
+          } else if (sims[chosen, firm] == f_google) {
+            stats[i+1, google_to_other := google_to_other + 1]
+            
+          # update count if rehire is moving between other firms
+          } else {
+            stats[i+1, other_to_other := other_to_other + 1]
+          }
         }
       }
       
       # Reset copy of df based on changes to population
       # Append all random entrants and remove all non-hires
       sims <- rbind(sims2[firm!=0],
-                    queue[culture!=0, list(firm, culture, tenure, employments)])
+                    queue[!is.na(culture), list(firm, culture, tenure, employments)])
       
     }
     
-    ### SOCIALIZATION
+    ### SOCIALIZATION (no noise, no asymptotic socialization)
 
-    # no noise, no asymptotic socialization
-    sims[, culture := culture + (med_cult[firm] - culture) *
+    # socialization for other firms
+    sims[firm!=f_google, culture := culture + (med_cult[firm] - culture) *
             par$b1 * exp(- (par$b2 * (tenure-1)) - (par$b3 * (employments-1)))]
     
+    # socialization for behemoth
+    sims[firm==f_google, culture := culture + (med_cult[firm] - culture) *
+           par$b1_google * exp(- (par$b2 * (tenure-1)) - (par$b3 * (employments-1)))]
+    
     # Calculate statistics
-    stats[i+1, var_win := mean(sims[, sd(culture, na.rm=T), by=firm]$V1)]
-    stats[i+1, var_btwn := sd(sims[, median(culture, na.rm=T), by=firm]$V1)]
+    stats[i+1, var_win_other := mean(sims[firm!=f_google, sd(culture, na.rm=T), by=firm]$V1)]
+    stats[i+1, var_win_google := sims[firm==f_google, sd(culture, na.rm=T)]]
+    stats[i+1, c_google := sims[firm==f_google, median(culture, na.rm=T)]]
+    stats[i+1, c_other := mean(sims[firm!=f_google, median(culture, na.rm=T), by=firm]$V1)]
   }
   
   ### Return summary statistics for each simulation run
-  summary <- data.table(varbtwn_start = stats$var_btwn[1],
-                        varwin_start = stats$var_win[1],
-                        varbtwn_end = stats$var_btwn[t+1],
-                        varwin_end = stats$var_win[t+1],
-                        turnover = mean(stats$hires)/(n*f),
-                        carriers = mean(stats$rehires/stats$hires, na.rm=T),
-                        tenure_end = median(sims$tenure),
-                        emps_end = median(sims$employments))
+  summary <- data.table(change_google = stats$c_google[t+1] - stats$c_google[1],
+                        change_other = stats$c_other[t+1] - stats$c_other[1],
+                        varwin_ratio_google = stats$var_win_google[t+1] / stats$var_win_google[1],
+                        varwin_ratio_other = stats$var_win_other[t+1] / stats$var_win_other[1],
+                        turnover_overall = mean(stats[2:t+1, (hires_other + hires_google)/(n*f + n_google)]),
+                        turnover_google = mean(stats[2:t+1, hires_google/n_google]),
+                        turnover_other = mean(stats[2:t+1, hires_other/(n*f)]),
+                        carriers_overall = mean(stats[2:t+1, (other_to_google + google_to_other + other_to_other)/(hires_google + hires_other)]),
+                        carriers_google = mean(stats[2:t+1, google_to_other/hires_other]),
+                        random_entry_google = mean(stats[2:t+1, 1 - other_to_google/hires_google]),
+                        random_entry_other = mean(stats[2:t+1, 1 - (google_to_other + other_to_other)/hires_other]),
+                        tenure_end_google = median(sims[firm==f_google, tenure]),
+                        emps_end_google = median(sims[firm==f_google, employments]),
+                        tenure_end_other = median(sims[firm!=f_google, tenure]),
+                        emps_end_other = median(sims[firm!=f_google, employments]))
   return(summary)
 }
 
 ### Apply culture evolution function for each set of parameters
 mc_stats <- mclapply(1:nrow(params), function(i) {
   result <- culture_fn(params[i,])
-  result <- cbind(result, params[i,])
+  result <- cbind(params[i,], result)
+  
+  # write out to csv file
+  write.table(result, file=filename, sep = ",", row.names=F, col.names=F, append=T)
   cat(i, '/', nrow(params), '\n')
-  return(result)
-}, mc.cores=16)
-global_stats <- Reduce(rbind, mc_stats)
+  
+  # return(result)
+}, mc.cores=n_cores)
+
+# global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-filename = paste("data/", Sys.Date(), "_results_baselinemodel.csv", sep="")
-write.csv(global_stats, file=filename)
+# write.csv(global_stats, file=filename)
