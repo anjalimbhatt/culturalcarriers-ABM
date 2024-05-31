@@ -1,2 +1,8 @@
 plots/*
 tables/*
+
+# Ignore all .log files
+*.log
+
+# Ignore large csv files
+data/large/*.csv
