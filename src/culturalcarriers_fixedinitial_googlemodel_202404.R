@@ -1,16 +1,16 @@
 #!/bin/env Rscript
 
-"
-Cultural Transmission & Variation in Organizational Populations
-Simulations over parameter grid and fixed initial conditions
+# Cultural Transmission & Variation in Organizational Populations
+# Simulations over parameter grid and fixed initial conditions
+# 
+# To run via command line:
+# bsub < ./src/rungooglemodel.sh
+# bsub -q short -n 16 -R "rusage[mem=5G]" -M 5G -hl -o ./log/googlemodel_%J.out Rscript ./src/culturalcarriers_fixedinitial_googlemodel_202404.R
+# 
+# Coded Apr 2024: Behemoth Model (aka Google)
+# 
+# author: Anjali Bhatt
 
-To run via command line:
-bsub < ./src/rungooglemodel.sh
-
-Coded Apr 2024: Behemoth Model (aka Google)
-
-@author: Anjali Bhatt
-"
 
 ### Define workspace details
 # setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
@@ -67,7 +67,7 @@ params <- CJ(
 )
 
 ### FOR TEST USE ONLY
-params <- params[1:100]
+# params <- params[1:100]
 
 ### Define function for cultural evolution in population
 culture_fn <- function(par) {

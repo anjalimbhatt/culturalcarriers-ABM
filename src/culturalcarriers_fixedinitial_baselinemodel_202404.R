@@ -1,21 +1,20 @@
 #!/bin/env Rscript
 
-"
-Cultural Transmission & Variation in Organizational Populations
-Simulations over parameter grid and fixed initial conditions
-
-To run via command line:
-bsub < ./src/runbaselinemodel.sh
-
-Originally written March 2017
-Recoded Apr 2018
-Recoded for fixed initial conditions Jun 2018
-Recoded for bug fixes Oct 2018
-Recoded Apr 2019: turnover > hiring > socialization
-Recoded Apr 2024: for new HBS cluster
-
-@author: Anjali Bhatt
-"
+# Cultural Transmission & Variation in Organizational Populations
+# Simulations over parameter grid and fixed initial conditions
+# 
+# To run via command line:
+# bsub < ./src/runbaselinemodel.sh
+# bsub -q short -n 16 -R "rusage[mem=5G]" -M 5G -hl -o ./log/baselinemodel_%J.out Rscript ./src/culturalcarriers_fixedinitial_baselinemodel_202404.R
+# 
+# Originally written March 2017
+# Recoded Apr 2018
+# Recoded for fixed initial conditions Jun 2018
+# Recoded for bug fixes Oct 2018
+# Recoded Apr 2019: turnover > hiring > socialization
+# Recoded Apr 2024: for new HBS cluster
+# 
+# author: Anjali Bhatt
 
 ### Define workspace details
 # setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
@@ -163,10 +162,15 @@ culture_fn <- function(par) {
 mc_stats <- mclapply(1:nrow(params), function(i) {
   result <- culture_fn(params[i,])
   result <- cbind(params[i,], result)
+  
+  # write out to csv file
+  write.table(result, file=filename, sep = ",", row.names=F, col.names=F, append=T)
   cat(i, '/', nrow(params), '\n')
-  return(result)
+  
+  # return(result)
 }, mc.cores=n_cores)
-global_stats <- Reduce(rbind, mc_stats)
+
+# global_stats <- Reduce(rbind, mc_stats)
 
 ### Write simulation results to csv file
-write.csv(global_stats, file=filename)
+# write.csv(global_stats, file=filename)
