@@ -1,10 +1,11 @@
-#!/bin/env R
+#!/bin/env Rscript
 
 "
 Cultural Transmission & Variation in Organizational Populations
 Simulations over parameter grid and fixed initial conditions
 
-Use source() to run code on server
+To run via command line:
+bsub < ./src/rungooglemodel.sh
 
 Coded Apr 2024: Behemoth Model (aka Google)
 
