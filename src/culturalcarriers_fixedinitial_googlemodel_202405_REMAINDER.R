@@ -19,6 +19,7 @@ filename <- paste("data/", Sys.Date(), "_results_googlemodel.csv", sep="") # out
 n_cores <- as.integer(Sys.getenv('LSB_DJOB_NUMPROC')) # detect number of CPUs for parallelization
 
 ### Load libraries
+library(tidyverse) # NEED THIS PACKAGE FOR REMAINDER
 library(data.table)
 library(matrixStats)
 library(parallel)
