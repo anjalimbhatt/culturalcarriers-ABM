@@ -18,7 +18,7 @@
 
 ### Define workspace details
 # setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
-filename <- paste("data/", Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
+filename <- paste("data/large/", Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
 n_cores <- as.integer(Sys.getenv('LSB_DJOB_NUMPROC')) # detect number of CPUs for parallelization
 
 ### Load libraries
