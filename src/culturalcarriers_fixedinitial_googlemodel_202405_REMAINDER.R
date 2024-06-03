@@ -4,7 +4,7 @@
 # Simulations over parameter grid and fixed initial conditions
 # 
 # To run via command line:
-# bsub < ./src/rungooglemodel.sh
+# bsub < ./src/rungooglemodel.sh ### MUCH SLOWER?
 # bsub -q short -n 16 -R "rusage[mem=5G]" -M 15G -hl -o ./log/googlemodel_%J.out -B -N Rscript ./src/culturalcarriers_fixedinitial_googlemodel_202405_REMAINDER.R
 # 
 # Coded Apr 2024: Behemoth Model (aka Google)
@@ -146,7 +146,7 @@ culture_fn <- function(par) {
     if (departures > 0) {
       # Set random order of hiring and prepopulate random entrant info
       queue <- data.table(firm = sims[sims2$firm==0,firm],
-                          culture = NA,
+                          culture = 0, # initialize as numeric so easier to replace (don't change!)
                           tenure = 0,
                           employments=ceiling(rlnorm(departures,0,0.5)),
                           draw = (runif(departures) <= par$s0))

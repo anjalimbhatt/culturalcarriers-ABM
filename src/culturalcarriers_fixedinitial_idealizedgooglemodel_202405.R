@@ -4,21 +4,16 @@
 # Simulations over parameter grid and fixed initial conditions
 # 
 # To run via command line:
-# bsub < ./src/runbaselinemodel.sh
-# bsub -q short -n 16 -R "rusage[mem=5G]" -M 15G -hl -o ./log/baselinemodel_%J.out -B -N Rscript ./src/culturalcarriers_fixedinitial_baselinemodel_202404.R
+# bsub -q short -n 16 -R "rusage[mem=5G]" -M 15G -hl -o ./log/idealizedgooglemodel_%J.out -B -N Rscript ./src/culturalcarriers_fixedinitial_idealizedgooglemodel_202405.R
 # 
-# Originally written March 2017
-# Recoded Apr 2018
-# Recoded for fixed initial conditions Jun 2018
-# Recoded for bug fixes Oct 2018
-# Recoded Apr 2019: turnover > hiring > socialization
-# Recoded Apr 2024: for new HBS cluster
+# Coded May 2024: Idealized Behemoth Model (aka Google)
 # 
 # author: Anjali Bhatt
 
+
 ### Define workspace details
 # setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
-filename <- paste("data/", Sys.Date(), "_results_baselinemodel.csv", sep="") # output file
+filename <- paste("data/", Sys.Date(), "_results_idealizedgooglemodel.csv", sep="") # output file
 n_cores <- as.integer(Sys.getenv('LSB_DJOB_NUMPROC')) # detect number of CPUs for parallelization
 
 ### Load libraries
@@ -28,8 +23,10 @@ library(parallel)
 
 ### Set global parameters for simulations
 n_reps <- 5 # number of replications per set of parameters, per initial condition
-f <- 30 # number of firms
-n <- 30 # number of employees per firm [10, 100, 1000]
+f <- 30 # number of other firms
+n <- 30 # number of employees per other firm
+r_google <- 1/5 # fraction of labor market employed by behemoth
+c_google <- as.numeric(2) # initial culture of behemoth (assumed constant in this model)
 t <- 120 # number of time periods (months)
 
 ### Read in initializations
@@ -44,18 +41,20 @@ params <- CJ(
   
   # socialization params (no noise)
   #b0 = 0.0, # asymptotic socialization susceptibility
-  b1 = seq(0, 1, 0.1), # initial socialization susceptibility
+  b1 = seq(0,1,0.1), # initial socialization susceptibility
   b2 = 0.30, # speed of socialization susceptibility decline by tenure
   b3 = 0.10, # speed of socialization susceptibility decline by employments
   
   # turnover params
-  r0 = c(0.01, 0.05), # turnover base rate (3.5% monthly according to JOLTS)
-  r1 = seq(0.1, 1.0, 0.1), # turnover alienation rate
+  r0 = c(0.05), # turnover base rate (3.5% monthly according to JOLTS)
+  r1 = seq(0.1,1.0,0.1), # turnover alienation rate
   r2 = c(0.05), # max increase in turnover probability
   
   # hiring params (no noise)
-  s0 = c(0.03, 1.0), # base rate of random entry
-  s1 = seq(0.1, 1.0, 0.1) # hiring selectivity threshold
+  s0 = r_google, # rate of behemoth entry
+  s1 = seq(0.1,1.0,0.1) # hiring selectivity threshold
+  
+  # no behemoth params (just simulate)
 )
 
 ### FOR TEST USE ONLY
@@ -68,9 +67,11 @@ culture_fn <- function(par) {
   sims <- init_conds[sim_no==par$cond, list(firm, culture, tenure, employments)]
   
   ### Initialize stats
-  stats <- data.table(var_win=rep(0, t+1), var_btwn=0, hires=0, rehires=0)
+  stats <- data.table(var_win=rep(0, t+1), # within-firm variance per period
+                      c_mean = 0, # mean of median culture per period
+                      hires=0) # total hires per period
   stats[1, var_win := mean(sims[, sd(culture, na.rm=T), by=firm]$V1)]
-  stats[1, var_btwn := sd(sims[, median(culture, na.rm=T), by=firm]$V1)]
+  stats[1, c_mean := mean(sims[, median(culture, na.rm=T), by=firm]$V1)]
   
   ### Loop over months
   for (i in 1:t) {
@@ -85,6 +86,8 @@ culture_fn <- function(par) {
     
     # If no alienation, then assume only base turnover rate
     # Otherwise, retention is modeled as a gaussian shape
+    
+    # turnover for firms
     sims2[, firm := firm * (runif(n*f) > ((par$r0 + par$r2) - par$r2 * par$r1 *
                                             sqrt(2*pi) * (dnorm(culture, med_cult[firm], par$r1))))]
     
@@ -94,66 +97,43 @@ culture_fn <- function(par) {
     ### HIRING
    
     # Track how many hires made each period
+    departures <- sum(sims2$firm==0)
     stats$hires[i+1] <- sum(sims2$firm==0)
     
-    if (stats$hires[i+1] > 0) {
-      # Set random order of hiring and prepopulate random entrant info
-      queue <- data.table(firm = sims[sims2$firm==0,firm],
-                          culture = 0, # initialize as numeric so easier to replace (don't change!)
-                          tenure = 0,
-                          employments=ceiling(rlnorm(stats$hires[i+1],0,0.5)),
-                          draw = (runif(stats$hires[i+1]) <= par$s0))
-
-      queue[, firm := firm[sample.int(length(firm))]]
-      
-      # Iterate over ordered hiring spots
-      for (j in 1:stats$hires[i+1]) {
-        focal_firm <- queue$firm[j]
-        
-        # unemployed pool is those within cultural threshold
-        unemployed <- which(sims2$firm==0 & sims$firm!=focal_firm &
-                              abs(sims2$culture - med_cult[focal_firm]) < 2*par$s1)
-        
-        # First check for new entry
-        if (queue$draw[j] | length(unemployed)==0) {
-          queue[j, culture := rnorm(1, med_cult[focal_firm], par$s1)]
-          
-          # Else draw random unemployed
-        } else {
-          chosen <- unemployed[sample.int(length(unemployed), 1)]
-          sims2[chosen, `:=`(firm = focal_firm,
-                             employments = employments + 1)]
-          stats[i+1, rehires := rehires + 1]
-        }
-      }
-      
-      # Reset copy of df based on changes to population
-      # Append all random entrants and remove all non-hires
-      sims <- rbind(sims2[firm!=0],
-                    queue[!is.na(culture), list(firm, culture, tenure, employments)])
-      
-    }
+    # Set random order of hiring and prepopulate random entrant info
+    queue <- data.table(firm = sims[sims2$firm==0,firm],
+                        culture = 0, # initialize as numeric so easier to replace (don't change!)
+                        tenure = 0,
+                        employments=ceiling(rlnorm(departures,0,0.5)),
+                        draw = (runif(departures) <= par$s0))
     
-    ### SOCIALIZATION
+    # Set culture of random entrant based on draw (from behemoth vs. random entry)
+    n_googlers <- sum(queue$draw==T)
+    queue[draw==T, culture := c_google]
+    queue[draw==F, culture := rnorm(departures-n_googlers, med_cult[firm], par$s1)]
+    
+    # Reset copy of df based on changes to population
+    # Append all random entrants and remove all non-hires
+    sims <- rbind(sims2[firm!=0],
+                  queue[!is.na(culture), list(firm, culture, tenure, employments)])
+    
+    ### SOCIALIZATION (no noise, no asymptotic socialization)
 
-    # no noise, no asymptotic socialization
+    # socialization for firms
     sims[, culture := culture + (med_cult[firm] - culture) *
             par$b1 * exp(- (par$b2 * (tenure-1)) - (par$b3 * (employments-1)))]
-    
+
     # Calculate statistics
     stats[i+1, var_win := mean(sims[, sd(culture, na.rm=T), by=firm]$V1)]
-    stats[i+1, var_btwn := sd(sims[, median(culture, na.rm=T), by=firm]$V1)]
+    stats[i+1, c_mean := mean(sims[, median(culture, na.rm=T), by=firm]$V1)]
   }
   
   ### Return summary statistics for each simulation run
-  summary <- data.table(varbtwn_start = stats$var_btwn[1],
-                        varwin_start = stats$var_win[1],
-                        varbtwn_end = stats$var_btwn[t+1],
-                        varwin_end = stats$var_win[t+1],
-                        turnover = mean(stats$hires)/(n*f),
-                        carriers = mean(stats$rehires/stats$hires, na.rm=T),
-                        tenure_end = median(sims$tenure),
-                        emps_end = median(sims$employments))
+  summary <- data.table(c_change = stats$c_mean[t+1] - stats$c_mean[1],
+                        varwin_ratio = stats$var_win[t+1] / stats$var_win[1],
+                        turnover = mean(stats[2:t+1, hires/(n*f)]),
+                        tenure_end = median(sims[, tenure]),
+                        emps_end = median(sims[, employments]))
   return(summary)
 }
 
