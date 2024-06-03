@@ -5,7 +5,7 @@
 # 
 # To run via command line:
 # bsub < ./src/runbaselinemodel.sh
-# bsub -q short -n 16 -R "rusage[mem=5G]" -M 15G -hl -o ./log/baselinemodel_%J.out Rscript ./src/culturalcarriers_fixedinitial_baselinemodel_202404.R
+# bsub -q short -n 16 -R "rusage[mem=5G]" -M 15G -hl -o ./log/baselinemodel_%J.out -B -N Rscript ./src/culturalcarriers_fixedinitial_baselinemodel_202404.R
 # 
 # Originally written March 2017
 # Recoded Apr 2018

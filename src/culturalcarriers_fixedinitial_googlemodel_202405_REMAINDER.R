@@ -5,9 +5,10 @@
 # 
 # To run via command line:
 # bsub < ./src/rungooglemodel.sh
-#                                            
+# bsub -q short -n 16 -R "rusage[mem=5G]" -M 15G -hl -o ./log/googlemodel_%J.out -B -N Rscript ./src/culturalcarriers_fixedinitial_googlemodel_202405_REMAINDER.R
 # 
 # Coded Apr 2024: Behemoth Model (aka Google)
+# REMAINDER is for completing the simulation runs that got killed on the HBS cluster
 # 
 # author: Anjali Bhatt
 
@@ -68,6 +69,20 @@ params <- CJ(
 
 ### FOR TEST USE ONLY
 # params <- params[1:100]
+
+### For determining remaining runs to complete
+complete <- read.csv("data/2024-05-31_results_googlemodel.csv", header=F)
+colnames(complete) <- c('cond','rep_no','b1','b2','b3','r0','r1','r2','s0','s1',
+                        'r1_google','b1_google','s1_google',
+                        'change_google','change_other',
+                        'varwin_ratio_google','varwin_ratio_other',
+                        'turnover_overall','turnover_google','turnover_other',
+                        'carriers_overall','carriers_google',
+                        'random_entry_google','random_entry_other',
+                        'tenure_end_google','emps_end_google',
+                        'tenure_end_other','emps_end_other')
+complete <- complete %>% select(cond:s1_google) %>% data.table()
+params <- anti_join(params, complete) # keep only param combinations not in completed runs
 
 ### Define function for cultural evolution in population
 culture_fn <- function(par) {
