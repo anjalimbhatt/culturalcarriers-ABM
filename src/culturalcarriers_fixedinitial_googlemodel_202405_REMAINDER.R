@@ -72,7 +72,7 @@ params <- CJ(
 # params <- params[1:100]
 
 ### For determining remaining runs to complete
-complete <- read.csv("data/large/2024-05-31_results_googlemodel.csv", header=F)
+complete <- read.csv("data/2024-05-31_results_googlemodel.csv", header=F)
 colnames(complete) <- c('cond','rep_no','b1','b2','b3','r0','r1','r2','s0','s1',
                         'r1_google','b1_google','s1_google',
                         'change_google','change_other',
