@@ -72,7 +72,7 @@ params <- CJ(
 # params <- params[1:100]
 
 ### For determining remaining runs to complete
-complete <- read.csv("data/2024-05-31_results_googlemodel.csv", header=F)
+complete <- read.csv("data/large/2024-05-31_results_googlemodel.csv", header=F)
 colnames(complete) <- c('cond','rep_no','b1','b2','b3','r0','r1','r2','s0','s1',
                         'r1_google','b1_google','s1_google',
                         'change_google','change_other',
@@ -83,6 +83,11 @@ colnames(complete) <- c('cond','rep_no','b1','b2','b3','r0','r1','r2','s0','s1',
                         'tenure_end_google','emps_end_google',
                         'tenure_end_other','emps_end_other')
 complete <- complete %>% select(cond:s1_google) %>% data.table()
+
+
+# Using anti_join to find parameter combinations not yet run
+complete <- complete %>% mutate(across(everything(), ~ round(as.numeric(.), 5)))
+params <- params %>% mutate(across(everything(), ~ round(as.numeric(.), 5))) # avoid floating point precision issues
 params <- anti_join(params, complete) # keep only param combinations not in completed runs
 
 ### Define function for cultural evolution in population
