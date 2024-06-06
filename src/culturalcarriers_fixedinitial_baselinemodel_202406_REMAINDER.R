@@ -65,7 +65,7 @@ params <- CJ(
 # params <- params[1:100]
 
 ### For determining remaining runs to complete
-complete <- read.csv("data/2024-06-03_results_baselinemodel.csv", header=F)
+complete <- read.csv("data/large/2024-06-03_results_baselinemodel.csv", header=F)
 colnames(complete) <- c('cond','rep_no','b1','b2','b3','r0','r1','r2','s0','s1',
                         'varbtwn_start','varwin_start','varbtwn_end','varwin_end',
                         'turnover','carriers','tenure_end','emps_end')
