@@ -11,18 +11,17 @@
 # 
 # author: Anjali Bhatt
 
+### Load libraries
+library(data.table)
+library(matrixStats)
+library(parallel)
 
 ### Define workspace details
 # setwd("/export/projects1/abhatt_culturalcarriers/cultural-carriers-ABM/")
 setwd("~/Documents/GitHub/culturalcarriers-ABM")
 filename <- paste("data/large/", Sys.Date(), "_results_googlemodel.csv", sep="") # output file
 # n_cores <- as.integer(Sys.getenv('LSB_DJOB_NUMPROC')) # detect number of CPUs for parallelization
-n_cores <- as.integer(detectCores())
-
-### Load libraries
-library(data.table)
-library(matrixStats)
-library(parallel)
+n_cores <- as.integer(detectCores()) - 1
 
 ### Set global parameters for simulations
 n_reps <- 5 # number of replications per set of parameters, per initial condition
@@ -34,12 +33,9 @@ c_google <- 2 # initial culture of behemoth
 t <- 120 # number of time periods (months)
 
 ### Read in initializations
-init_conds <- read.csv("data/input/initial_conditions_201810.csv", header=T)
+init_conds <- read.csv("data/input/initial_conditions_google_202406.csv", header=T)
 init_conds <- data.table(init_conds)
-init_conds <- init_conds[var_win == 0.1] # subset for relevant initial variance within firms
 n_conds <- length(unique(init_conds$cond)) # number of unique conditions after subsetting
-init_conds[firm > f, `:=` (firm = f_google, culture = rnorm(n_google * n_conds, c_google, var_win))]
-write.csv(init_conds, file = "data/input/initial_conditions_google_202406.csv")
 
 ### Make data frame of varying parameter settings
 params <- CJ(
@@ -177,7 +173,7 @@ culture_fn <- function(par) {
       # Reset copy of df based on changes to population
       # Append all random entrants and remove all non-hires
       sims <- rbind(sims2[firm!=0],
-                    queue[!is.na(culture), list(firm, culture, tenure, employments)])
+                    queue[culture!=0, list(firm, culture, tenure, employments)])
       
     }
     

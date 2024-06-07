@@ -145,7 +145,7 @@ culture_fn <- function(par) {
       # Reset copy of df based on changes to population
       # Append all random entrants and remove all non-hires
       sims <- rbind(sims2[firm!=0],
-                    queue[!is.na(culture), list(firm, culture, tenure, employments)])
+                    queue[culture!=0, list(firm, culture, tenure, employments)])
       
     }
     
