@@ -100,7 +100,7 @@ culture_fn <- function(par) {
     departures <- sum(sims2$firm==0)
     stats$hires[i+1] <- sum(sims2$firm==0)
     
-    # Set random order of hiring and prepopulate random entrant info
+    # Create list of hiring and prepopulate random entrant info
     queue <- data.table(firm = sims[sims2$firm==0,firm],
                         culture = 0, # initialize as numeric so easier to replace (don't change!)
                         tenure = 0,
