@@ -14,21 +14,35 @@ library(gridExtra)
 # working directory
 setwd("/Users/ambhatt/Documents/GitHub/culturalcarriers-ABM/")
 
-# read data for analysis
-df_baseline <- read.csv("data/baseline_model.csv", header=T) %>% as.data.table()
-df_behemoth <- read.csv("data/behemoth_model.csv", header=T) %>% as.data.table()
-df_idealized <- read.csv("data/idealized_behemoth.csv", header=T) %>%
-  select(initcond, run, s0, r0,
-         r1_other = r1, b1_other = b1, s1_other = other_s1, s1_google = google_s1, other_culture_change = culture_change) %>%
-  as.data.table()
+# read and format data from baseline model
+df_baseline <- read.csv("data/large/2024-06-07_results_baselinemodel.csv", header=F) %>% as.data.table()
+colnames(df_baseline) <- c("cond","rep_no","b1","b2","b3","r0","r1","r2","s0","s1",
+                           "varbtwn_start","varwin_start","varbtwn_end","varwin_end",
+                           "turnover","carriers","tenure_end","emps_end")
 
 df_baseline[s0==1, mobility := "Isolated Firms"]
 df_baseline[s0==0.03, mobility := "Inter-firm Mobility"]
 df_baseline[r0==0.01, industry := "Low Turnover"]
 df_baseline[r0==0.05, industry := "High Turnover"]
+df_baseline[, fstat := ((varbtwn_end * varwin_start) / (varwin_end * varbtwn_start))^2]
 
-df_behemoth <- df_behemoth %>%
-  rbind(df_idealized, fill=T)
+# read and format data from idealized behemoth model
+# df_idealized <- read.csv("data/idealized_behemoth.csv", header=T) %>%
+#   select(initcond, run, s0, r0, r1_other = r1, b1_other = b1, s1_other = other_s1,
+#          s1_google = google_s1, other_culture_change = culture_change) %>%
+#   as.data.table()
+
+# read and format data from behemoth model
+df_behemoth <- read.csv("data/large/2024-06-07_results_googlemodel.csv", header=F) %>% as.data.table()
+colnames(df_behemoth) <- c("cond","rep_no","b1","b2","b3","r0","r1","r2","s0","s1",
+                           "r1_google","b1_google","s1_google",
+                           "change_google","change_other","varwin_ratio_google","varwin_ratio_other",
+                           "turnover_overall","turnover_google","turnover_other",
+                           "carriers_overall","carriers_google","random_entry_google","random_entry_other",
+                           "tenure_end_google","emps_end_google","tenure_end_other","emps_end_other")
+
+# merge data from idealized and behemoth models
+# df_behemoth <- df_behemoth %>% rbind(df_idealized, fill=T)
 df_behemoth[s0==0.8, mobility := "Isolated Firms"]
 df_behemoth[s0==0.03, mobility := "Inter-firm Mobility"]
 
@@ -36,8 +50,8 @@ df_behemoth[s0==0.03, mobility := "Inter-firm Mobility"]
 
 # Strong Culture (within-firm variation) ----------------------------------
 varwin_s1 <- df_baseline %>%
-  filter(s0!=0.10 & r1==0.1 & b1==0.3 & industry=="High Turnover") %>%
-  ggplot(aes(x=s1, y=within_final/within_initial, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
+  filter(r1==0.1 & b1==0.3 & industry=="High Turnover") %>%
+  ggplot(aes(x=s1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
   scale_color_manual(values=c("black","darkgrey"), guide=F) +
   geom_boxplot(aes(group=s1)) +
   facet_grid(rows=vars(mobility)) +
@@ -46,11 +60,11 @@ varwin_s1 <- df_baseline %>%
   ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
   scale_y_continuous(limits=c(0,10), breaks=seq(0,10,2), labels=NULL) +
   ylab(NULL)
-varwin_s1
+# varwin_s1
 
 varwin_b1 <- df_baseline %>%
-  filter(s0!=0.10 & r1==0.1 & s1==1.0 & industry=="High Turnover") %>%
-  ggplot(aes(x=b1, y=within_final/within_initial, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
+  filter(r1==0.1 & s1==1.0 & industry=="High Turnover") %>%
+  ggplot(aes(x=b1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
   scale_color_manual(values=c("black","darkgrey"), guide=F) +
   geom_boxplot(aes(group=b1)) +
   facet_grid(rows=vars(mobility)) +
@@ -59,11 +73,11 @@ varwin_b1 <- df_baseline %>%
   ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
   scale_y_continuous(limits=c(0,10), breaks=seq(0,10,2), labels=NULL) +
   ylab(NULL)
-varwin_b1
+# varwin_b1
 
 varwin_r1 <- df_baseline %>%
-  filter(s0!=0.10 & b1==0.3 & s1==1.0 & industry=="High Turnover") %>%
-  ggplot(aes(x=r1, y=within_final/within_initial, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
+  filter(b1==0.3 & s1==1.0 & industry=="High Turnover") %>%
+  ggplot(aes(x=r1, y=varwin_end/varwin_start, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
   scale_color_manual(values=c("black","darkgrey"), guide=F) +
   geom_boxplot(aes(group=r1)) +
   facet_grid(rows=vars(mobility)) +
@@ -71,7 +85,7 @@ varwin_r1 <- df_baseline %>%
   xlab(expression(paste("Turnover Alienation Bandwidth ", r[1]))) +
   ylab(expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
   scale_y_continuous(limits=c(0,10), breaks=seq(0,10,2))
-varwin_r1
+# varwin_r1
 
 varwin_plot <- grid.arrange(varwin_r1, varwin_s1, varwin_b1, ncol=3)
 ggsave(filename="figures/202405/varwin_plot.png", plot=varwin_plot, units="in", width=9, height=6.5)
@@ -81,80 +95,148 @@ ggsave(filename="figures/202405/varwin_plot.png", plot=varwin_plot, units="in", 
 # variation between for all 3 parameters
 # heat maps for s1-b1, variation within & differentiation (f-stat)
 
+df_baseline %>%
+  filter(r1 %in% c(0.1)) %>%
+  group_by(s1, b1, mobility, industry) %>%
+  summarise(varwin = mean(varwin_end/varwin_start)) %>%
+  ggplot(aes(x=s1, y=b1)) +
+  geom_tile(aes(fill=varwin)) +
+  facet_grid(rows=vars(mobility), cols=vars(industry)) +
+  theme_minimal() +
+  scale_fill_viridis_c(direction = -1, trans="log10", option='H', 
+                       name = expression(paste("Ratio of final to initial ", widehat(sigma)["within"]))) +
+  xlab("Hiring Selection Bandwidth") +
+  ylab("Socialization Susceptibility")
+
+df_baseline %>%
+  filter(r1 %in% c(0.1) & industry=='High Turnover') %>%
+  group_by(s1, b1, mobility, industry) %>%
+  summarise(tenure = mean(tenure_end)) %>%
+  ggplot(aes(x=s1, y=b1)) +
+  geom_tile(aes(fill=tenure)) +
+  facet_grid(rows=vars(mobility), cols=vars(industry)) +
+  theme_minimal() +
+  scale_fill_viridis_c(option='H', direction = -1, #trans="log10",
+                       name = "Median tenure of employees at final T") +
+  xlab("Hiring Selection Bandwidth") +
+  ylab("Socialization Susceptibility")
+
+df_baseline %>%
+  filter(r1==0.1 & mobility=='Inter-firm Mobility') %>%
+  group_by(s1, b1, industry) %>%
+  summarise(varbtwn = mean(varbtwn_end/varbtwn_start)) %>%
+  ggplot(aes(x=s1, y=b1)) +
+  geom_tile(aes(fill=varbtwn)) +
+  facet_grid(cols=vars(industry)) +
+  theme_minimal() +
+  scale_fill_viridis_c(option='H', direction = -1, trans="log10",
+                       name = expression(paste("Ratio of final to initial ", widehat(sigma)["between"]))) +
+  xlab("Hiring Selection Bandwidth") +
+  ylab("Socialization Susceptibility")
+
+df_baseline %>%
+  filter(r1==0.1 & mobility=='Inter-firm Mobility') %>%
+  group_by(s1, b1, industry) %>%
+  summarise(fstat = mean(fstat)) %>%
+  ggplot(aes(x=s1, y=b1)) +
+  geom_tile(aes(fill=fstat)) +
+  facet_grid(cols=vars(industry)) +
+  theme_minimal() +
+  scale_fill_viridis_c(option='H', direction = -1, trans="log10",
+                       name = "Ratio of final to initial f-stat") +
+  xlab("Hiring Selection Bandwidth") +
+  ylab("Socialization Susceptibility")
+
 # Cultural Change (Behemoth Model) ----------------------------------------
 
-g_change_r1 <- df_behemoth %>%
-  filter(r1_google %in% c(0.3,NA) & s1_google==0.3 & b1_google %in% c(0.7,NA) &
-    b1_other==0.3 & s1_other==0.5) %>%
-  ggplot(aes(x=r1_other, y=other_culture_change, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
-  scale_color_manual(values=c("black","darkgrey"), guide=F) +
-  geom_boxplot(aes(group=r1_other)) +
-  facet_grid(rows=vars(mobility)) +
-  theme(panel.spacing = unit(1, "lines")) +
-  xlab(expression(paste("Turnover Alienation Bandwidth of Small Firms ", r[1]))) +
-  ylab(expression(paste("Cultural Change of Small Firms ", Delta,"c"))) +
-  ylim(0,2)
-g_change_r1
+# g_change_r1 <- df_behemoth %>%
+#   filter(r1_google %in% c(0.3,NA) & s1_google==0.3 & b1_google %in% c(0.7,NA) &
+#     b1_other==0.3 & s1_other==0.5) %>%
+#   ggplot(aes(x=r1_other, y=other_culture_change, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
+#   scale_color_manual(values=c("black","darkgrey"), guide=F) +
+#   geom_boxplot(aes(group=r1_other)) +
+#   facet_grid(rows=vars(mobility)) +
+#   theme(panel.spacing = unit(1, "lines")) +
+#   xlab(expression(paste("Turnover Alienation Bandwidth of Small Firms ", r[1]))) +
+#   ylab(expression(paste("Cultural Change of Small Firms ", Delta,"c"))) +
+#   ylim(0,2)
+# g_change_r1
+# 
+# g_change_s1 <- df_behemoth %>%
+#   filter(r1_google %in% c(0.3,NA) & s1_google==0.3 & b1_google %in% c(0.7,NA) &
+#            r1_other==0.3 & b1_other==0.3) %>%
+#   ggplot(aes(x=s1_other, y=other_culture_change, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
+#   scale_color_manual(values=c("black","darkgrey"), guide=F) +
+#   geom_boxplot(aes(group=s1_other)) +
+#   facet_grid(rows=vars(mobility)) +
+#   theme(panel.spacing = unit(1, "lines")) +
+#   xlab(expression(paste("Hiring Selectivity Bandwidth of Small Firms ", s[1]))) +
+#   ylab(expression(paste("Cultural Change of Small Firms ", Delta,"c"))) +
+#   ylim(0,2)
+# g_change_s1
+# 
+# g_change_b1 <- df_behemoth %>%
+#   filter(r1_google %in% c(0.3,NA) & s1_google==0.3 & b1_google %in% c(0.7,NA) &
+#            r1_other==0.3 & s1_other==0.5) %>%
+#   ggplot(aes(x=b1_other, y=other_culture_change, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
+#   scale_color_manual(values=c("black","darkgrey"), guide=F) +
+#   geom_boxplot(aes(group=b1_other)) +
+#   facet_grid(rows=vars(mobility)) +
+#   theme(panel.spacing = unit(1, "lines")) +
+#   xlab(expression(paste("Initial Socialization Rate of Small Firms ", b[1]))) +
+#   ylab(expression(paste("Cultural Change of Small Firms ", Delta,"c"))) +
+#   ylim(0,2)
+# g_change_b1
 
-g_change_s1 <- df_behemoth %>%
-  filter(r1_google %in% c(0.3,NA) & s1_google==0.3 & b1_google %in% c(0.7,NA) &
-           r1_other==0.3 & b1_other==0.3) %>%
-  ggplot(aes(x=s1_other, y=other_culture_change, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
-  scale_color_manual(values=c("black","darkgrey"), guide=F) +
-  geom_boxplot(aes(group=s1_other)) +
-  facet_grid(rows=vars(mobility)) +
-  theme(panel.spacing = unit(1, "lines")) +
-  xlab(expression(paste("Hiring Selectivity Bandwidth of Small Firms ", s[1]))) +
-  ylab(expression(paste("Cultural Change of Small Firms ", Delta,"c"))) +
-  ylim(0,2)
-g_change_s1
-
-g_change_b1 <- df_behemoth %>%
-  filter(r1_google %in% c(0.3,NA) & s1_google==0.3 & b1_google %in% c(0.7,NA) &
-           r1_other==0.3 & s1_other==0.5) %>%
-  ggplot(aes(x=b1_other, y=other_culture_change, col=factor(mobility, levels=c("Inter-firm Mobility", "Isolated Firms")))) +
-  scale_color_manual(values=c("black","darkgrey"), guide=F) +
-  geom_boxplot(aes(group=b1_other)) +
-  facet_grid(rows=vars(mobility)) +
-  theme(panel.spacing = unit(1, "lines")) +
-  xlab(expression(paste("Initial Socialization Rate of Small Firms ", b[1]))) +
-  ylab(expression(paste("Cultural Change of Small Firms ", Delta,"c"))) +
-  ylim(0,2)
-g_change_b1
-
-b1s1_heatmap <- df_behemoth %>%
-  filter(r1_google==0.3 & s1_google==0.3 & b1_google==0.7 &
-           r1_other==0.9) %>%
-  ggplot(aes(x=b1_other, y=s1_other)) +
-  geom_tile(aes(fill=other_culture_change)) +
+b1s1_changeother <- df_behemoth %>%
+  filter(r1_google==0.2 & s1_google==0.8 & b1_google==0.2 & r1 %in% c(0.1, 0.5, 1.0)) %>%
+  group_by(s1, b1, r1) %>%
+  summarise(change_other = mean(change_other)) %>%
+  ggplot(aes(x=s1, y=b1)) +
+  geom_tile(aes(fill=change_other)) +
   theme_minimal() +
-  scale_fill_viridis_c(option='H', #trans="log10",
+  facet_grid(rows = vars(r1)) +
+  scale_fill_viridis_c(option='H', limits = c(-0.05,0.85), #trans="log10",
                        name = "Small Firms' Cultural Change") +
-  xlab("Small Firms' Socialization Rate") +
-  ylab("Small Firms' Selectivity Bandwidth")
-b1s1_heatmap
+  ylab("Small Firms' Socialization Rate") +
+  xlab("Small Firms' Selectivity Bandwidth")
+b1s1_changeother
 
-r1s1_heatmap <- df_behemoth %>%
-  filter(r1_google==0.3 & s1_google==0.3 & b1_google==0.7 &
-           b1_other==0.1) %>%
-  ggplot(aes(x=r1_other, y=s1_other)) +
-  geom_tile(aes(fill=other_culture_change)) +
+b1s1_changegoogle <- df_behemoth %>%
+  filter(r1_google==0.2 & s1_google==0.8 & b1_google==0.2 & r1 %in% c(0.1, 0.5, 1.0)) %>%
+  group_by(s1, b1, r1) %>%
+  summarise(change_google = mean(change_google)) %>%
+  ggplot(aes(x=s1, y=b1)) +
+  geom_tile(aes(fill=change_google)) +
   theme_minimal() +
-  scale_fill_viridis_c(option='H', #trans="log10",
-                       name = "Small Firms' Cultural Change") +
-  xlab("Small Firms' Alienation Bandwidth") +
-  ylab("Small Firms' Selectivity Bandwidth")
-r1s1_heatmap
+  facet_grid(rows = vars(r1)) +
+  scale_fill_viridis_c(option='H', #limits = c(-0.05,0.85), #trans="log10",
+                       name = "Behemoth's Cultural Change") +
+  ylab("Small Firms' Socialization Rate") +
+  xlab("Small Firms' Selectivity Bandwidth")
+b1s1_changegoogle
 
-r1s1_smooth <- df_behemoth %>%
-  filter(r1_google==0.3 & s1_google==0.3 & b1_google==0.7 &
-           b1_other==0.1) %>%
-  ggplot(aes(x=s1_other, y=other_culture_change, color=factor(r1_other))) +
-  geom_smooth() +
-  scale_color_viridis_d() +
-  xlab("Small Firms' Selectivity Bandwidth") +
-  ylab("Small Firms' Cultural Change")
-r1s1_smooth
+# r1s1_heatmap <- df_behemoth %>%
+#   filter(r1_google==0.3 & s1_google==0.3 & b1_google==0.7 &
+#            b1_other==0.1) %>%
+#   ggplot(aes(x=r1_other, y=s1_other)) +
+#   geom_tile(aes(fill=other_culture_change)) +
+#   theme_minimal() +
+#   scale_fill_viridis_c(option='H', #trans="log10",
+#                        name = "Small Firms' Cultural Change") +
+#   xlab("Small Firms' Alienation Bandwidth") +
+#   ylab("Small Firms' Selectivity Bandwidth")
+# r1s1_heatmap
+# 
+# r1s1_smooth <- df_behemoth %>%
+#   filter(r1_google==0.3 & s1_google==0.3 & b1_google==0.7 &
+#            b1_other==0.1) %>%
+#   ggplot(aes(x=s1_other, y=other_culture_change, color=factor(r1_other))) +
+#   geom_smooth() +
+#   scale_color_viridis_d() +
+#   xlab("Small Firms' Selectivity Bandwidth") +
+#   ylab("Small Firms' Cultural Change")
+# r1s1_smooth
 
 
 
